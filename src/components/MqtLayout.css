@@ -1,0 +1,223 @@
+/* ===== GLOBAL RESET ===== */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+html,
+body {
+  font-family: 'Roboto', 'Arial', sans-serif;
+  background-color: #fafafa;
+  color: #333;
+}
+
+/* ===== DISPLAY SECTION ===== */
+.mqt-display {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100vh;
+  user-select: none;
+  padding: 2rem;
+  background-color: #f5f5f5;
+}
+
+.mqt-display svg.circle-svg {
+  width: 90vmin;
+  /* 90% of the smaller viewport side */
+  height: 90vmin;
+  max-width: 100%;
+  /* prevent overflow horizontally */
+  max-height: 100vh;
+  /* prevent vertical scroll */
+}
+
+.mqt-display text {
+  /* font-size now controlled dynamically by JavaScript */
+
+  font-weight: 500;
+  dominant-baseline: middle;
+}
+
+/* ===== RESPONSIVE DESIGN FOR LARGE SCREENS ===== */
+
+/* Medium screens (tablets, small monitors) */
+@media (min-width: 768px) and (max-width: 1439px) {
+  .mqt-display svg {
+    max-width: min(80vmin, 900px);
+    max-height: min(80vmin, 900px);
+  }
+
+  .mqt-display {
+    padding: 3rem;
+  }
+}
+
+/* Large screens (desktop monitors) */
+@media (min-width: 1440px) and (max-width: 2559px) {
+  .mqt-display svg {
+    max-width: min(75vmin, 1400px);
+    max-height: min(75vmin, 1400px);
+  }
+
+  .mqt-display {
+    padding: 4rem;
+  }
+}
+
+/* Extra large screens (4K monitors, large displays) */
+@media (min-width: 2560px) and (max-width: 3839px) {
+  .mqt-display svg {
+    max-width: min(70vmin, 2000px);
+    max-height: min(70vmin, 2000px);
+  }
+
+  .mqt-display {
+    padding: 6rem;
+  }
+}
+
+/* Ultra large screens (75-inch displays, 8K+) */
+@media (min-width: 3840px) {
+  .mqt-display svg {
+    max-width: min(65vmin, 2800px);
+    max-height: min(65vmin, 2800px);
+  }
+
+  .mqt-display {
+    padding: 8rem;
+  }
+}
+
+/* Theme colors */
+.theme-black {
+  background-color: #000000;
+}
+
+.theme-emerald {
+  background-color: #0f172a;
+}
+
+.theme-purple {
+  background-color: #9c27b0;
+}
+
+.theme-green {
+  background-color: #2e7d32;
+}
+
+.theme-white {
+  background-color: #ffffff;
+}
+
+.theme-red {
+  background-color: #f44336;
+}
+
+.theme-blue {
+  background-color: #2196f3;
+}
+
+/* ===== SETTINGS PANEL ===== */
+.mqt-settings-panel {
+  max-width: 600px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background-color: #ffffff;
+  border-radius: 16px;
+  box-shadow: 0px 4px 20px rgba(0, 0, 0, 0.08);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.mqt-settings-panel h2 {
+  font-size: 1.25rem;
+  font-weight: 600;
+  padding-bottom: 0.3rem;
+  border-bottom: 1px solid #e0e0e0;
+  color: #222;
+  margin-bottom: 0.5rem;
+}
+
+/* START BUTTON */
+.start-btn {
+  display: flex;
+  justify-content: center;
+  margin-top: 2rem;
+}
+
+.start-btn button {
+  background-color: #1976d2;
+  color: #fff;
+  font-weight: bold;
+  padding: 0.75rem 2rem;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+
+.start-btn button:hover {
+  background-color: #1565c0;
+}
+
+/* FULLSCREEN */
+.fullscreen {
+  width: 100vw;
+  height: 100vh;
+}
+
+/* TIMER EDITING */
+.timer-edit-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1000;
+}
+
+.timer-edit-input {
+  font-size: inherit;
+  font-family: inherit;
+  color: inherit;
+  background-color: rgba(255, 255, 255, 0.95);
+  border: 3px solid currentColor;
+  border-radius: 8px;
+  padding: 8px 16px;
+  text-align: center;
+  outline: none;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  min-width: 200px;
+  transition: all 0.2s ease;
+}
+
+.timer-edit-input:focus {
+  box-shadow: 0 6px 30px rgba(0, 0, 0, 0.4);
+  transform: scale(1.02);
+}
+
+.timer-edit-hint {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 8px;
+  font-size: 14px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.8);
+  color: white;
+  padding: 6px 12px;
+  border-radius: 6px;
+  white-space: nowrap;
+  font-family: 'Arial', sans-serif;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.3);
+}
+
+/* SVG Timer Digits */
+.timer-digit-clickable {
+  cursor: pointer !important;
+  user-select: none;
+}
