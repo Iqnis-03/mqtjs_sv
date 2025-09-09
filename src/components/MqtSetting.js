@@ -56,7 +56,13 @@ const MqtSetting = () => {
   // Load saved settings or use defaults
   const savedSettings = loadSettings() || {};
   const [tabIndex, setTabIndex] = useState(savedSettings.tabIndex || 0);
-  const [duration, setDuration] = useState(savedSettings.duration || 10);
+  const initialDurationSec = (() => {
+    const raw = savedSettings.duration ?? 600; // default 10 minutes in seconds
+    if (savedSettings.durationUnit === 'sec') return Math.max(1, raw);
+    const fmt = savedSettings.timeFormat || 'mm';
+    return Math.max(1, fmt === 'mm:ss' ? raw : raw * 60);
+  })();
+  const [durationSec, setDurationSec] = useState(initialDurationSec);
   const [limitBreak, setLimitBreak] = useState(savedSettings.limitBreak || false);
   const [autoRestart, setAutoRestart] = useState(savedSettings.autoRestart || false);
   const [countUp, setCountUp] = useState(savedSettings.countUp || false);
@@ -70,6 +76,9 @@ const MqtSetting = () => {
   const [circleStyle, setCircleStyle] = useState(savedSettings.circleStyle || 'thin');
   const [soundSet, setSoundSet] = useState(savedSettings.soundSet || 1);
   const [warnMode, setWarnMode] = useState(savedSettings.warnMode || '10s');
+  const [startSoundEnabled, setStartSoundEnabled] = useState(
+    typeof savedSettings.startSoundEnabled === 'boolean' ? savedSettings.startSoundEnabled : true
+  );
   const [hideClockBackground, setHideClockBackground] = useState(savedSettings.hideClockBackground || false);
   const [circleProgress, setCircleProgress] = useState(savedSettings.circleProgress || 'full');
   const [allowClickableTimer, setAllowClickableTimer] = useState(savedSettings.allowClickableTimer || false);
@@ -80,7 +89,7 @@ const MqtSetting = () => {
   useEffect(() => {
     const settings = {
       tabIndex,
-      duration,
+      duration: durationSec,
       limitBreak,
       autoRestart,
       countUp,
@@ -94,17 +103,19 @@ const MqtSetting = () => {
       circleStyle,
       soundSet,
       warnMode,
+      startSoundEnabled,
       hideClockBackground,
       circleProgress,
-      allowClickableTimer
+      allowClickableTimer,
+      durationUnit: 'sec'
     };
     saveSettings(settings);
-  }, [tabIndex, duration, limitBreak, autoRestart, countUp, disableKeyboard, redTrigger, yellowTrigger, timeFormat, plusMinusStep, theme, font, circleStyle, soundSet, warnMode, hideClockBackground, circleProgress, allowClickableTimer]);
+  }, [tabIndex, durationSec, limitBreak, autoRestart, countUp, disableKeyboard, redTrigger, yellowTrigger, timeFormat, plusMinusStep, theme, font, circleStyle, soundSet, warnMode, startSoundEnabled, hideClockBackground, circleProgress, allowClickableTimer]);
 
   // Helper function to get clean settings values
   const getCleanSettings = () => ({
     tabIndex,
-    duration,
+    duration: durationSec,
     limitBreak,
     autoRestart,
     countUp,
@@ -118,15 +129,18 @@ const MqtSetting = () => {
     circleStyle,
     soundSet,
     warnMode,
+    startSoundEnabled,
     hideClockBackground,
     circleProgress,
-    allowClickableTimer
+    allowClickableTimer,
+    durationUnit: 'sec'
   });
 
   const handleStart = () => {
     const settings = getCleanSettings();
+    const durationSeconds = durationSec;
     const params = new URLSearchParams({
-      duration: settings.duration * 60,
+      duration: durationSeconds,
       autoRestart: settings.autoRestart,
       countUp: settings.countUp,
       disableKeyboard: settings.disableKeyboard,
@@ -141,24 +155,82 @@ const MqtSetting = () => {
       warnMode: settings.warnMode,
       hideClockBackground: settings.hideClockBackground,
       circleProgress: settings.circleProgress,
-      allowClickableTimer: settings.allowClickableTimer
+      allowClickableTimer: settings.allowClickableTimer,
+      startSoundEnabled: settings.startSoundEnabled,
+      limitBreak: settings.limitBreak
     });
     navigate(`/display?${params.toString()}`);
   };
 
   const TimerSettings = (
     <Stack spacing={2}>
-      <Typography variant="body2">Duration: {duration} min</Typography>
-      <Slider
-        size="small"
-        min={1}
-        max={limitBreak ? 43200 : 120}
-        value={duration}
-        onChange={(e, v) => setDuration(v)}
-      />
+      {timeFormat === 'mm:ss' ? (
+        <>
+          <Typography variant="body2">
+            Duration: {Math.floor(durationSec / 60)} min {durationSec % 60} sec
+          </Typography>
+          <Stack direction="row" spacing={1}>
+            <TextField
+              fullWidth
+              size="small"
+              type="number"
+              label="Minutes"
+              value={Math.floor(durationSec / 60)}
+              onChange={(e) => {
+                const maxSeconds = limitBreak ? 43200 * 60 : 120 * 60;
+                const currentSeconds = durationSec % 60;
+                const nextMinutes = Math.max(0, Math.min(maxSeconds / 60, parseInt(e.target.value || '0', 10)));
+                const nextDuration = Math.max(1, Math.min(maxSeconds, nextMinutes * 60 + currentSeconds));
+                setDurationSec(nextDuration);
+              }}
+              inputProps={{ min: 0, max: limitBreak ? 43200 : 120 }}
+            />
+            <TextField
+              fullWidth
+              size="small"
+              type="number"
+              label="Seconds"
+              value={durationSec % 60}
+              onChange={(e) => {
+                const maxSeconds = limitBreak ? 43200 * 60 : 120 * 60;
+                const secondsVal = Math.max(0, Math.min(59, parseInt(e.target.value || '0', 10)));
+                const minutesPart = Math.floor(durationSec / 60);
+                const nextDuration = Math.max(1, Math.min(maxSeconds, minutesPart * 60 + secondsVal));
+                setDurationSec(nextDuration);
+              }}
+              inputProps={{ min: 0, max: 59 }}
+            />
+          </Stack>
+          <Slider
+            size="small"
+            min={1}
+            max={limitBreak ? 43200 * 60 : 120 * 60}
+            value={durationSec}
+            onChange={(e, v) => setDurationSec(v)}
+          />
+        </>
+      ) : (
+        <>
+          <Typography variant="body2">Duration: {Math.floor(durationSec / 60)} min</Typography>
+          <Slider
+            size="small"
+            min={1}
+            max={limitBreak ? 43200 : 120}
+            value={Math.max(1, Math.floor(durationSec / 60))}
+            onChange={(e, v) => setDurationSec(Math.max(1, v) * 60)}
+          />
+        </>
+      )}
       <FormControlLabel control={<Checkbox size="small" checked={autoRestart} onChange={() => setAutoRestart(!autoRestart)} />} label="Auto Restart" />
       <FormControlLabel control={<Checkbox size="small" checked={countUp} onChange={() => setCountUp(!countUp)} />} label="Count Up (Reverse)" />
       <FormControlLabel control={<Checkbox size="small" checked={limitBreak} onChange={() => setLimitBreak(!limitBreak)} />} label="Limit Break (exceed 120 min)" />
+      <FormControl fullWidth size="small">
+        <InputLabel>Time Format</InputLabel>
+        <Select value={timeFormat} label="Time Format" onChange={(e) => setTimeFormat(e.target.value)}>
+          <MenuItem value="mm">MM</MenuItem>
+          <MenuItem value="mm:ss">MM:SS</MenuItem>
+        </Select>
+      </FormControl>
     </Stack>
   );
 
@@ -167,15 +239,6 @@ const MqtSetting = () => {
       <FormControlLabel control={<Checkbox size="small" checked={disableKeyboard} onChange={() => setDisableKeyboard(!disableKeyboard)} />} label="Disable Keyboard Shortcut" />
       <FormControlLabel control={<Checkbox size="small" checked={allowClickableTimer} onChange={() => setAllowClickableTimer(!allowClickableTimer)} />} label="Allow Clickable Timer when running" />
       <FormControlLabel control={<Checkbox size="small" checked={hideClockBackground} onChange={() => setHideClockBackground(!hideClockBackground)} />} label="Hide Clock Background" />
-      <FormControl fullWidth size="small">
-        <InputLabel>Time Format</InputLabel>
-        <Select value={timeFormat} label="Time Format" onChange={(e) => setTimeFormat(e.target.value)}>
-          <MenuItem value="mm">MM</MenuItem>
-          <MenuItem value="mm:ss">MM:SS</MenuItem>
-          {/* <MenuItem value="hh:mm:ss">HH:MM:SS</MenuItem>
-          <MenuItem value="hhmmss">HHMMSS (2h5m20s)</MenuItem> */}
-        </Select>
-      </FormControl>
       <FormControl fullWidth size="small">
         <InputLabel>Circle Bar Progress</InputLabel>
         <Select value={circleProgress} label="Circle Bar Progress" onChange={(e) => setCircleProgress(e.target.value)}>
@@ -218,6 +281,7 @@ const MqtSetting = () => {
   const previewAudioRef = useRef(null);
   const handlePreviewSound = async () => {
     try {
+      if (soundSet === 0) return;
       if (previewAudioRef.current) {
         previewAudioRef.current.pause();
         previewAudioRef.current.currentTime = 0;
@@ -263,6 +327,7 @@ const MqtSetting = () => {
           <MenuItem value="Arial">Arial</MenuItem>
           <MenuItem value="Times New Roman">Times New Roman</MenuItem>
           <MenuItem value="Mono">Mono</MenuItem>
+          <MenuItem value="Thin">Thin</MenuItem>
         </Select>
       </FormControl>
       <FormControl fullWidth size="small">
@@ -277,6 +342,7 @@ const MqtSetting = () => {
         <FormControl fullWidth size="small">
           <InputLabel>Sound Set</InputLabel>
           <Select value={soundSet} label="Sound Set" onChange={(e) => setSoundSet(parseInt(e.target.value))}>
+            <MenuItem value={0}>None</MenuItem>
             <MenuItem value={1}>Set 1</MenuItem>
             <MenuItem value={2}>Set 2</MenuItem>
             <MenuItem value={3}>Set 3</MenuItem>
@@ -290,6 +356,7 @@ const MqtSetting = () => {
           onClick={handlePreviewSound}
           aria-label="Preview selected sound set"
           title="Preview selected sound set"
+          disabled={soundSet === 0}
         >
           <span role="img" aria-label="speaker">🔊</span>
         </Button>
@@ -297,13 +364,39 @@ const MqtSetting = () => {
       <FormControl fullWidth size="small">
         <InputLabel>Notification Sound Mod</InputLabel>
         <Select value={warnMode} label="Notification Sound Mod" onChange={(e) => setWarnMode(e.target.value)}>
+          <MenuItem value="none">None</MenuItem>
           <MenuItem value="10s">Last 10 Seconds</MenuItem>
-          <MenuItem value="1m">Last 1 Minute</MenuItem>
-          <MenuItem value="5m">Last 5 Minutes</MenuItem>
+          <MenuItem value="1m">Last 1 Minute (once)</MenuItem>
+          <MenuItem value="5m">Last 5 Minutes (once)</MenuItem>
         </Select>
       </FormControl>
+      <FormControlLabel control={<Checkbox size="small" checked={startSoundEnabled} onChange={() => setStartSoundEnabled(!startSoundEnabled)} />} label="Enable Start Sound" />
     </Stack>
   );
+
+  // Reset to defaults and clear saved settings
+  const handleReset = () => {
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    setTabIndex(0);
+    setDurationSec(600);
+    setLimitBreak(false);
+    setAutoRestart(false);
+    setCountUp(false);
+    setDisableKeyboard(false);
+    setRedTrigger(60);
+    setYellowTrigger(300);
+    setTimeFormat('mm');
+    setPlusMinusStep(5);
+    setTheme('black');
+    setFont('Arial');
+    setCircleStyle('thin');
+    setSoundSet(1);
+    setWarnMode('10s');
+    setStartSoundEnabled(true);
+    setHideClockBackground(false);
+    setCircleProgress('full');
+    setAllowClickableTimer(false);
+  };
 
   //FULLSCREEN
   const toggleFullscreen = () => {
@@ -361,8 +454,16 @@ const MqtSetting = () => {
         <Button
           variant="outlined"
           onClick={toggleFullscreen}
+          sx={{ mr: 2 }}
         >
           Fullscreen
+        </Button>
+        <Button
+          variant="outlined"
+          color="error"
+          onClick={handleReset}
+        >
+          Reset
         </Button>
       </Box>
     </Box>

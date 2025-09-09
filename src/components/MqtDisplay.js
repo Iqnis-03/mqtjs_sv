@@ -6,7 +6,10 @@ const MqtDisplay = () => {
   const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
 
-  const duration = Math.max(1, parseInt(params.get('duration') || '600', 10) || 600);
+  const limitBreak = params.get('limitBreak') === 'true';
+  const rawDuration = Math.max(1, parseInt(params.get('duration') || '600', 10) || 600);
+  const effectiveMaxSeconds = (limitBreak ? 43200 : 120) * 60;
+  const duration = Math.min(rawDuration, effectiveMaxSeconds);
   const autoRestart = params.get('autoRestart') === 'true';
   const countUp = params.get('countUp') === 'true';
   const disableKeyboard = params.get('disableKeyboard') === 'true';
@@ -18,10 +21,14 @@ const MqtDisplay = () => {
   const timeFormat = params.get('timeFormat') || 'mm';
   const plusMinusStep = Math.max(1, parseInt(params.get('plusMinusStep') || '5', 10) || 5);
   const font = params.get('font') || 'Arial';
+  const effectiveFontFamily = font === 'Thin' ? 'Arial' : font;
+  const effectiveFontWeight = font === 'Thin' ? 200 : undefined;
   const circleStyle = params.get('circleStyle') || 'thin';
   const theme = params.get('theme') || 'black';
   const soundSet = params.get('soundSet') || '1';
+  const startSoundEnabled = params.get('startSoundEnabled') !== 'false';
   const warnMode = params.get('warnMode') || '10s';
+  const endSoundEnabled = soundSet !== '0';
   const hideClockBackground = params.get('hideClockBackground') === 'true';
   const circleProgress = params.get('circleProgress') || 'full';
   const allowClickableTimer = params.get('allowClickableTimer') === 'true';
@@ -43,11 +50,18 @@ const MqtDisplay = () => {
   const [isRunning, setIsRunning] = useState(false);
   const [currentDuration, setCurrentDuration] = useState(duration);
   const [editingDigit, setEditingDigit] = useState(null);
+  const [hasEnded, setHasEnded] = useState(false);
 
   // Smooth progress for continuous animation
   const [smoothTime, setSmoothTime] = useState(countUp ? 0 : duration);
   const lastUpdateTime = useRef(Date.now());
   const animationFrameRef = useRef(null);
+
+  // Helper: seconds currently shown/editable in the display
+  const getDisplaySeconds = useCallback(() => {
+    const safe = isNaN(time) ? 0 : time;
+    return countUp && !isRunning ? currentDuration : Math.max(0, safe);
+  }, [countUp, isRunning, currentDuration, time]);
 
   // Dynamic color based on remaining time
   const getDynamicColor = () => {
@@ -95,6 +109,7 @@ const MqtDisplay = () => {
   };
 
   const MAX_MINUTES = 43200; // 30 days
+  const MAX_MINUTES_EFFECTIVE = limitBreak ? MAX_MINUTES : 120;
   const radius = 110; // Enlarged radius to provide more space for expanding timer text
   const circumference = 2 * Math.PI * radius;
 
@@ -111,7 +126,9 @@ const MqtDisplay = () => {
   const endSounds = useRef([]);
   const warnSounds = useRef([]);
   const soundIndexes = useRef({ start: 0, end: 0, warn: 0 });
+  const lastWarnSecondRef = useRef(null);
   const audioContextRef = useRef(null);
+  const warnOncePlayedRef = useRef(false);
 
   const ensureAudioContext = useCallback(async () => {
     try {
@@ -160,28 +177,23 @@ const MqtDisplay = () => {
     }
   }, [ensureAudioContext]);
 
-  const playFromPoolIfReady = useCallback((poolRef, key) => {
-    const pool = poolRef.current;
-    if (!pool || pool.length === 0) return;
-    const currentIndex = soundIndexes.current[key] || 0;
-    const audio = pool[currentIndex];
-    if (audio && audio.readyState >= 2) {
-      audio.currentTime = 0;
-      audio.play().catch(() => { });
-      soundIndexes.current[key] = (currentIndex + 1) % pool.length;
-    }
-  }, []);
 
   // 🎯 Initialize multiple audio instances for instant playback
   useEffect(() => {
-    // Create 3 instances of each sound for cycling
-    for (let i = 0; i < 3; i++) {
+    // Create multiple instances of each sound for cycling (ensure enough for 10 rapid plays)
+    for (let i = 0; i < 12; i++) {
       startSounds.current[i] = new Audio(startSoundPath);
-      endSounds.current[i] = new Audio(endSoundPath);
+      if (endSoundEnabled) {
+        endSounds.current[i] = new Audio(endSoundPath);
+      }
       warnSounds.current[i] = new Audio(warnSoundPath);
     }
 
-    const allSounds = [...startSounds.current, ...endSounds.current, ...warnSounds.current];
+    const allSounds = [
+      ...startSounds.current,
+      ...(endSoundEnabled ? endSounds.current : []),
+      ...warnSounds.current
+    ];
 
     // Enhanced audio preparation for reduced delay
     allSounds.forEach((audio) => {
@@ -226,14 +238,14 @@ const MqtDisplay = () => {
         audio.src = '';
       });
     };
-  }, [startSoundPath, endSoundPath, warnSoundPath]);
+  }, [startSoundPath, endSoundPath, warnSoundPath, endSoundEnabled]);
 
   // ▶️ Play start sound when timer actually starts running
   useEffect(() => {
-    if (isRunning) {
+    if (isRunning && startSoundEnabled) {
       playFromPool(startSounds, 'start');
     }
-  }, [isRunning, playFromPool]);
+  }, [isRunning, playFromPool, startSoundEnabled]);
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -244,8 +256,6 @@ const MqtDisplay = () => {
 
         if (countUp) {
           if (prev >= currentDuration) {
-            // Timer finished - play end sound immediately
-            playFromPool(endSounds, 'end');
             if (autoRestart) return 0;
             setIsRunning(false);
             return currentDuration;
@@ -253,25 +263,37 @@ const MqtDisplay = () => {
           nextTime = prev + 1;
         } else {
           if (prev <= 0) {
-            // Timer finished - play end sound immediately
-            playFromPool(endSounds, 'end');
             if (autoRestart) return currentDuration;
             setIsRunning(false);
             return 0;
           }
           nextTime = prev - 1;
 
-          // 🔊 Warn sound trigger - precise clock tick every second during warning period
-          if (warnMode === '10s' && nextTime <= 10 && nextTime > 0) {
-            playFromPoolIfReady(warnSounds, 'warn');
-          }
-
-          if (warnMode === '1m' && nextTime <= 60 && nextTime > 0) {
-            playFromPoolIfReady(warnSounds, 'warn');
-          }
-
-          if (warnMode === '5m' && nextTime <= 300 && nextTime > 0) {
-            playFromPoolIfReady(warnSounds, 'warn');
+          // 🔊 Warn sound trigger
+          if (warnMode !== 'none') {
+            if (warnMode === '10s') {
+              // Beep exactly once per visible second in the last 10 seconds (supports up and down)
+              const remaining = countUp ? (currentDuration - nextTime) : nextTime;
+              const intRemaining = Math.ceil(remaining);
+              if (intRemaining > 0 && intRemaining <= 10) {
+                if (lastWarnSecondRef.current !== intRemaining) {
+                  lastWarnSecondRef.current = intRemaining;
+                  playFromPool(warnSounds, 'warn');
+                }
+              } else {
+                lastWarnSecondRef.current = null;
+              }
+            } else if (warnMode === '1m') {
+              if (!warnOncePlayedRef.current && prev > 60 && nextTime <= 60) {
+                warnOncePlayedRef.current = true;
+                playFromPool(warnSounds, 'warn');
+              }
+            } else if (warnMode === '5m') {
+              if (!warnOncePlayedRef.current && prev > 300 && nextTime <= 300) {
+                warnOncePlayedRef.current = true;
+                playFromPool(warnSounds, 'warn');
+              }
+            }
           }
         }
 
@@ -284,7 +306,7 @@ const MqtDisplay = () => {
       timeoutRefs.current.forEach(timeout => clearTimeout(timeout));
       timeoutRefs.current = [];
     };
-  }, [isRunning, currentDuration, countUp, autoRestart, warnMode, playFromPool, playFromPoolIfReady]);
+  }, [isRunning, currentDuration, countUp, autoRestart, warnMode, playFromPool]);
 
   // Smooth progress animation for continuous circle movement
   useEffect(() => {
@@ -340,9 +362,60 @@ const MqtDisplay = () => {
     };
   }, [isRunning, time, currentDuration, countUp]);
 
+  const endTriggeredRef = useRef(false);
+
+  useEffect(() => {
+    if (!isRunning) return;
+    if (endTriggeredRef.current) return;
+
+    const thresholdReached = countUp
+      ? smoothTime >= currentDuration - 0.01
+      : smoothTime <= 0.01;
+
+    if (!thresholdReached) return;
+
+    endTriggeredRef.current = true;
+    setHasEnded(true);
+    playFromPool(endSounds, 'end');
+
+    if (countUp) {
+      if (autoRestart) {
+        setTime(0);
+        setSmoothTime(0);
+        lastUpdateTime.current = Date.now();
+        endTriggeredRef.current = false;
+        setHasEnded(false);
+      } else {
+        setIsRunning(false);
+        setTime(currentDuration);
+        setSmoothTime(currentDuration);
+      }
+    } else {
+      if (autoRestart) {
+        setTime(currentDuration);
+        setSmoothTime(currentDuration);
+        lastUpdateTime.current = Date.now();
+        endTriggeredRef.current = false;
+        setHasEnded(false);
+      } else {
+        setIsRunning(false);
+        setTime(0);
+        setSmoothTime(0);
+      }
+    }
+  }, [isRunning, smoothTime, currentDuration, countUp, autoRestart, playFromPool]);
+
+  useEffect(() => {
+    if (isRunning) {
+      endTriggeredRef.current = false;
+      warnOncePlayedRef.current = false;
+      lastWarnSecondRef.current = null;
+      setHasEnded(false);
+    }
+  }, [isRunning, currentDuration]);
+
   // Circle stroke - add safety checks to prevent NaN
   const safeDuration = currentDuration > 0 ? currentDuration : 1; // Prevent division by zero
-  const safeTime = isNaN(time) ? 0 : time;
   const safeSmoothTime = isNaN(smoothTime) ? (countUp ? 0 : safeDuration) : smoothTime;
 
   // Calculate progress based on circle progress mode using smooth time for continuous animation
@@ -353,17 +426,15 @@ const MqtDisplay = () => {
   const useSecondProgress = timeRemaining <= 10;
 
   if (useSecondProgress) {
-    // 10-SECOND COUNTDOWN MODE: Circle shows progress within the final 10 seconds
+    // 10-SECOND COUNTDOWN MODE: Circle does one full lap per second
     const smoothTimeRemaining = countUp ? safeDuration - safeSmoothTime : safeSmoothTime;
     if (countUp) {
-      // Count up: show how much of the final 10 seconds has elapsed
-      const elapsedIn10Seconds = Math.min(safeSmoothTime, 10);
-      percent = elapsedIn10Seconds / 10;
+      // Fractional progress within the current second (0 -> 1 each second)
+      percent = safeSmoothTime - Math.floor(safeSmoothTime);
     } else {
-      // Count down: show countdown progress within final 10 seconds
-      // At 10 seconds: 0% (start), At 5 seconds: 50%, At 0 seconds: 100% (end)
-      const progressIn10Seconds = (10 - smoothTimeRemaining) / 10;
-      percent = Math.max(0, progressIn10Seconds);
+      // Fractional progress within the current second while counting down
+      // Uses ceil to start at 0 exactly on integer seconds (e.g., 10, 9, ...)
+      percent = Math.ceil(smoothTimeRemaining) - smoothTimeRemaining;
     }
   } else if (circleProgress === 'minute') {
     // BY MINUTE MODE: circle shows elapsed seconds within current minute
@@ -383,15 +454,16 @@ const MqtDisplay = () => {
   }
 
   const safePercent = isNaN(percent) ? 0 : Math.max(0, Math.min(1, percent)); // Clamp between 0-1
-  const strokeDashoffset = countUp ? circumference * (1 - safePercent) : -circumference * safePercent;
+  const strokeDashoffset = hasEnded
+    ? circumference // show no progress (empty) so only grey base circle remains
+    : (countUp ? circumference * (1 - safePercent) : -circumference * safePercent);
 
   const baseStrokeWidth = circleStyle === 'fat' ? 16 : circleStyle === 'bw' ? 2 : 8;
   const computedStrokeWidth = getResponsiveStrokeWidth(baseStrokeWidth);
 
   // Time format
   const formatTime = () => {
-    const safeTimeLocal = isNaN(time) ? 0 : time;
-    const total = countUp ? safeTimeLocal : Math.max(0, safeTimeLocal);
+    const total = getDisplaySeconds();
     const s = total % 60;
 
     // Ensure s is a valid number
@@ -403,8 +475,8 @@ const MqtDisplay = () => {
         if (total < 60) {
           return String(safeS); // Show seconds directly (59, 58, 57...)
         }
-        // Normal MM format for 60+ seconds
-        return `${String(Math.floor(total / 60)).padStart(2, '0')}`;
+        // Normal MM format for 60+ seconds (show ceiling minute until boundary)
+        return `${String(Math.ceil(total / 60)).padStart(2, '0')}`;
       case 'mm:ss':
         return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(safeS).padStart(2, '0')}`;
       default:
@@ -413,13 +485,16 @@ const MqtDisplay = () => {
   };
 
   // Determine if we should switch to hour-inclusive display when current time exceeds 120 minutes
-  const currentTotalSeconds = Math.max(0, safeTime);
+  const currentTotalSeconds = getDisplaySeconds();
   const isLongDuration = Math.floor(currentTotalSeconds / 60) > 120;
   const isVeryLongDuration = Math.floor(currentTotalSeconds / 60) >= 1440;
+
+  const canEditDigits = allowClickableTimer || !isRunning;
 
   // Dynamic font size based on actual digit count and screen size
   const getDynamicFontSize = () => {
     const timeText = formatTime();
+    const displaySeconds = getDisplaySeconds();
     const textLength = timeText.length;
 
     // Get viewport dimensions for responsive scaling
@@ -443,7 +518,7 @@ const MqtDisplay = () => {
     let baseSize;
 
     if (timeFormat === 'mm') {
-      const totalTime = countUp ? time : Math.max(0, time);
+      const totalTime = displaySeconds;
 
       // Check if we're in SS mode (last minute)
       if (totalTime < 60 && !isLongDuration) {
@@ -466,7 +541,7 @@ const MqtDisplay = () => {
         else baseSize = 35;
       } else {
         // MM mode: showing minutes (1, 2, 3, 4+ digits)
-        const totalMinutes = Math.floor(totalTime / 60);
+        const totalMinutes = Math.ceil(totalTime / 60);
         const actualDigits = String(totalMinutes).length;
 
         if (actualDigits === 1) {
@@ -490,7 +565,7 @@ const MqtDisplay = () => {
         else baseSize = 35;
       } else {
         // For MM:SS format, consider minute digits + colon + seconds
-        const totalMinutes = Math.floor((countUp ? time : Math.max(0, time)) / 60);
+        const totalMinutes = Math.floor(displaySeconds / 60);
         const minuteDigits = String(totalMinutes).length;
 
         if (minuteDigits === 1) {
@@ -525,7 +600,7 @@ const MqtDisplay = () => {
     const colonFactor = 0.3; // width for ':' relative to font size
     const unitFactor = 0.35; // width for unit letters like 'h'
 
-    const totalForDisplay = countUp ? Math.max(0, time) : Math.max(0, time);
+    const totalForDisplay = displaySeconds;
     const hourDigits = String(Math.floor(totalForDisplay / 3600)).length || 1;
     const secondsVal = Math.floor(totalForDisplay % 60);
     const secondsDigits = String(secondsVal).length;
@@ -546,12 +621,13 @@ const MqtDisplay = () => {
       } else if (isLongDuration) {
         // HHMM (no 'm') but with 'h'
         widthFactor = charFactor * (hourDigits + 2) + unitFactor; // hours + 2 minute digits + 'h'
-      } else if ((countUp ? time : Math.max(0, time)) < 60) {
+      } else if (displaySeconds < 60) {
         // seconds only (SS)
         widthFactor = charFactor * secondsDigits;
       } else {
         // minutes only (MM...)
-        widthFactor = charFactor * minuteDigits;
+        const minuteDigitsMM = String(Math.ceil(totalForDisplay / 60)).length || 1;
+        widthFactor = charFactor * minuteDigitsMM;
       }
     } else if (timeFormat === 'mm:ss') {
       if (isVeryLongDuration) {
@@ -578,8 +654,7 @@ const MqtDisplay = () => {
 
   // Digit clicking functions
   const getTimeComponents = () => {
-    const safeTimeLocal = isNaN(time) ? 0 : time;
-    const total = countUp ? safeTimeLocal : Math.max(0, safeTimeLocal);
+    const total = getDisplaySeconds();
     const h = Math.floor(total / 3600);
     const m = Math.floor((total % 3600) / 60);
     const s = total % 60;
@@ -607,7 +682,7 @@ const MqtDisplay = () => {
     switch (digitType) {
       // MM FORMAT: Unlimited minutes (1, 10, 100, 999+)
       case 'totalMinutes': {
-        const currentTotalMinutes = Math.floor(totalSeconds / 60);
+        const currentTotalMinutes = Math.ceil(totalSeconds / 60);
         const totalMinuteStr = String(currentTotalMinutes);
         const numDigits = totalMinuteStr.length;
 
@@ -634,7 +709,7 @@ const MqtDisplay = () => {
         }
 
         // Clamp to bounds
-        newTotalMinutes = Math.min(MAX_MINUTES, Math.max(1, newTotalMinutes));
+        newTotalMinutes = Math.min(MAX_MINUTES_EFFECTIVE, Math.max(1, newTotalMinutes));
 
         // Convert back to seconds for timer duration
         newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
@@ -660,19 +735,19 @@ const MqtDisplay = () => {
         } else {
           const candidate = currentMinutesTotal - minutePlaceValue;
           if (candidate <= 0) {
-            const fallback = numMinuteDigits > 1 ? Math.pow(10, numMinuteDigits - 1) - 1 : 1;
+            const fallback = numMinuteDigits > 1 ? Math.pow(10, numMinuteDigits - 1) - 1 : 0;
             newMinutesTotal = fallback;
           } else {
             newMinutesTotal = candidate;
           }
         }
 
-        // Clamp within bounds for MM:SS
-        newMinutesTotal = Math.min(MAX_MINUTES, Math.max(1, newMinutesTotal));
+        // Clamp within bounds for MM:SS minutes (allow 0 minutes)
+        newMinutesTotal = Math.min(MAX_MINUTES_EFFECTIVE, Math.max(0, newMinutesTotal));
 
-        // Preserve current seconds and update total duration
+        // Preserve current seconds and update total duration, ensuring at least 1 second total
         const currentSeconds = totalSeconds % 60;
-        newDuration = newMinutesTotal * 60 + currentSeconds;
+        newDuration = Math.max(1, newMinutesTotal * 60 + currentSeconds);
         break;
       }
 
@@ -704,19 +779,17 @@ const MqtDisplay = () => {
         const currentMinutesFromSeconds = Math.floor(totalSeconds / 60);
         let updatedMinutes = currentMinutesFromSeconds + carryOverMinutes;
 
-        // Ensure minimum 1 minute total
-        if (updatedMinutes < 1) {
-          updatedMinutes = 1;
+        // Bound minutes within 0..MAX_MINUTES and seconds within 0..59
+        if (updatedMinutes < 0) {
+          updatedMinutes = 0;
           newSeconds = 0;
-        }
-        // Ensure maximum MAX_MINUTES minute total
-        else if (updatedMinutes > MAX_MINUTES) {
-          updatedMinutes = MAX_MINUTES;
-          newSeconds = 59; // Cap at MAX_MINUTES:59
+        } else if (updatedMinutes > MAX_MINUTES_EFFECTIVE) {
+          updatedMinutes = MAX_MINUTES_EFFECTIVE;
+          newSeconds = 59;
         }
 
-        // Update duration with new minutes and seconds
-        newDuration = updatedMinutes * 60 + newSeconds;
+        // Update duration with new minutes and seconds; enforce minimum total of 1 second
+        newDuration = Math.max(1, updatedMinutes * 60 + newSeconds);
         break;
       }
 
@@ -735,7 +808,7 @@ const MqtDisplay = () => {
 
         let newTotalMinutes = newHours * 60 + minutesWithinHour;
         if (newTotalMinutes < 0) newTotalMinutes = 0;
-        if (newTotalMinutes > MAX_MINUTES) newTotalMinutes = MAX_MINUTES;
+        if (newTotalMinutes > MAX_MINUTES_EFFECTIVE) newTotalMinutes = MAX_MINUTES_EFFECTIVE;
         newDuration = newTotalMinutes * 60 + secondsWithinMinute;
         break;
       }
@@ -764,7 +837,7 @@ const MqtDisplay = () => {
 
         let newTotalMinutes = newHours * 60 + newMinutes;
         if (newTotalMinutes < 0) newTotalMinutes = 0; // allow zero
-        if (newTotalMinutes > MAX_MINUTES) newTotalMinutes = MAX_MINUTES;
+        if (newTotalMinutes > MAX_MINUTES_EFFECTIVE) newTotalMinutes = MAX_MINUTES_EFFECTIVE;
         newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
         break;
       }
@@ -785,7 +858,7 @@ const MqtDisplay = () => {
           const newDaysBorrow = Math.max(0, days - 1);
           let borrowTotalMinutes = newDaysBorrow * 24 * 60 + 23 * 60 + minutesWithinHour;
           if (borrowTotalMinutes < 0) borrowTotalMinutes = 0;
-          if (borrowTotalMinutes > MAX_MINUTES) borrowTotalMinutes = MAX_MINUTES;
+          if (borrowTotalMinutes > MAX_MINUTES_EFFECTIVE) borrowTotalMinutes = MAX_MINUTES_EFFECTIVE;
           newDuration = borrowTotalMinutes * 60 + secondsWithinMinute;
           break;
         }
@@ -794,7 +867,7 @@ const MqtDisplay = () => {
         if (newDays < 0) newDays = 0;
         let newTotalMinutes = newDays * 24 * 60 + hoursWithinDay * 60 + minutesWithinHour;
         if (newTotalMinutes < 0) newTotalMinutes = 0;
-        if (newTotalMinutes > MAX_MINUTES) newTotalMinutes = MAX_MINUTES;
+        if (newTotalMinutes > MAX_MINUTES_EFFECTIVE) newTotalMinutes = MAX_MINUTES_EFFECTIVE;
         newDuration = newTotalMinutes * 60 + secondsWithinMinute;
         break;
       }
@@ -824,7 +897,7 @@ const MqtDisplay = () => {
 
         let newTotalMinutes = newDays * 24 * 60 + newHours * 60 + minutesWithinHour;
         if (newTotalMinutes < 0) newTotalMinutes = 0;
-        if (newTotalMinutes > MAX_MINUTES) newTotalMinutes = MAX_MINUTES;
+        if (newTotalMinutes > MAX_MINUTES_EFFECTIVE) newTotalMinutes = MAX_MINUTES_EFFECTIVE;
         newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
         break;
       }
@@ -844,6 +917,18 @@ const MqtDisplay = () => {
     const newParams = new URLSearchParams(window.location.search);
     newParams.set('duration', newDuration.toString());
     window.history.replaceState({}, '', `${window.location.pathname}?${newParams.toString()}`);
+
+    // SYNC BACK TO SETTINGS STORAGE (two-way sync)
+    try {
+      const STORAGE_KEY = 'mqt-timer-settings';
+      const saved = localStorage.getItem(STORAGE_KEY);
+      const parsed = saved ? JSON.parse(saved) : {};
+      parsed.duration = newDuration; // store in seconds consistently
+      parsed.durationUnit = 'sec';
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
+    } catch (e) {
+      // ignore storage errors
+    }
 
     // VISUAL FEEDBACK (200ms flash: green for increment, red for decrement)
     setEditingDigit(`${digitType}-${digitPosition}-${isIncrement ? 'inc' : 'dec'}`);
@@ -871,14 +956,16 @@ const MqtDisplay = () => {
     const colonWidth = fontSize * 0.3;
     const unitWidth = fontSize * 0.35;
 
+    const displaySeconds = getDisplaySeconds();
+
     switch (timeFormat) {
       // MM FORMAT: Unlimited minutes (1, 10, 100, 999+) with auto-switch
       case 'mm': {
-        const totalTime = countUp ? time : Math.max(0, time);
+        const totalTime = displaySeconds;
 
         // If duration is configured as "long", switch to HHMM (or DDayHH when >24h)
         if (isVeryLongDuration) {
-          const totalForDisplay = countUp ? Math.max(0, time) : Math.max(0, time);
+          const totalForDisplay = displaySeconds;
           const days = Math.floor(totalForDisplay / 86400);
           const hoursInDay = Math.floor((totalForDisplay % 86400) / 3600);
           const dayStr = String(days);
@@ -904,8 +991,8 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('days', i, true) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('days', i, true) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <rect
                   x={digitX - charWidth / 2}
@@ -914,14 +1001,14 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('days', i, false) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('days', i, false) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <text
                   x={digitX}
                   y={125}
                   textAnchor="middle"
-                  fontFamily={font}
+                  fontFamily={effectiveFontFamily}
                   fontSize={fontSize}
                   fill={editingDigit?.startsWith(`days-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
                   pointerEvents="none"
@@ -940,7 +1027,7 @@ const MqtDisplay = () => {
               x={dayX}
               y={125}
               textAnchor="middle"
-              fontFamily={font}
+              fontFamily={effectiveFontFamily}
               fontSize={fontSize * dayLabelScale}
               fill={dynamicTextColor}
             >
@@ -961,8 +1048,8 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hoursWithinDay', i, true) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('hoursWithinDay', i, true) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <rect
                   x={digitX - charWidth / 2}
@@ -971,14 +1058,14 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hoursWithinDay', i, false) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('hoursWithinDay', i, false) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <text
                   x={digitX}
                   y={125}
                   textAnchor="middle"
-                  fontFamily={font}
+                  fontFamily={effectiveFontFamily}
                   fontSize={fontSize}
                   fill={editingDigit?.startsWith(`hoursWithinDay-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
                   pointerEvents="none"
@@ -997,7 +1084,7 @@ const MqtDisplay = () => {
               x={hX2}
               y={125}
               textAnchor="middle"
-              fontFamily={font}
+              fontFamily={effectiveFontFamily}
               fontSize={fontSize * 0.3}
               fill={dynamicTextColor}
             >
@@ -1006,7 +1093,7 @@ const MqtDisplay = () => {
           );
 
         } else if (isLongDuration) {
-          const totalForDisplay = countUp ? Math.max(0, time) : Math.max(0, time);
+          const totalForDisplay = displaySeconds;
           const hours = Math.floor(totalForDisplay / 3600);
           const minutesInHour = Math.floor((totalForDisplay % 3600) / 60);
           const hourStr = String(hours);
@@ -1027,8 +1114,8 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hours', i, true) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('hours', i, true) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <rect
                   x={digitX - charWidth / 2}
@@ -1037,14 +1124,14 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hours', i, false) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('hours', i, false) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <text
                   x={digitX}
                   y={125}
                   textAnchor="middle"
-                  fontFamily={font}
+                  fontFamily={effectiveFontFamily}
                   fontSize={fontSize}
                   fill={editingDigit?.startsWith(`hours-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
                   pointerEvents="none"
@@ -1063,7 +1150,7 @@ const MqtDisplay = () => {
               x={hX}
               y={125}
               textAnchor="middle"
-              fontFamily={font}
+              fontFamily={effectiveFontFamily}
               fontSize={fontSize * 0.3}
               fill={dynamicTextColor}
             >
@@ -1084,8 +1171,8 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('minutesWithinHour', i, true) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('minutesWithinHour', i, true) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <rect
                   x={digitX - charWidth / 2}
@@ -1094,14 +1181,14 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('minutesWithinHour', i, false) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('minutesWithinHour', i, false) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <text
                   x={digitX}
                   y={125}
                   textAnchor="middle"
-                  fontFamily={font}
+                  fontFamily={effectiveFontFamily}
                   fontSize={fontSize}
                   fill={editingDigit?.startsWith(`minutesWithinHour-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
                   pointerEvents="none"
@@ -1133,8 +1220,8 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('seconds', 0, true) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('seconds', 1, true) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 {/* Bottom half click area - decrement seconds */}
                 <rect
@@ -1144,15 +1231,15 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('seconds', 0, false) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('seconds', 1, false) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 {/* Seconds text display */}
                 <text
                   x={120}
                   y={125}
                   textAnchor="middle"
-                  fontFamily={font}
+                  fontFamily={effectiveFontFamily}
                   fontSize={fontSize}
                   fill={editingDigit?.startsWith('seconds-0') ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
                   pointerEvents="none"
@@ -1176,8 +1263,8 @@ const MqtDisplay = () => {
                     height={fontSize / 2}
                     fill="transparent"
                     className="timer-digit-clickable"
-                    onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('seconds', i, true) : undefined}
-                    pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                    onClick={canEditDigits ? () => adjustDigit('seconds', i, true) : undefined}
+                    pointerEvents={canEditDigits ? 'auto' : 'none'}
                   />
                   {/* Bottom half click area - decrement */}
                   <rect
@@ -1187,15 +1274,15 @@ const MqtDisplay = () => {
                     height={fontSize / 2}
                     fill="transparent"
                     className="timer-digit-clickable"
-                    onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('seconds', i, false) : undefined}
-                    pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                    onClick={canEditDigits ? () => adjustDigit('seconds', i, false) : undefined}
+                    pointerEvents={canEditDigits ? 'auto' : 'none'}
                   />
                   {/* Digit text */}
                   <text
                     x={digitX}
                     y={125}
                     textAnchor="middle"
-                    fontFamily={font}
+                    fontFamily={effectiveFontFamily}
                     fontSize={fontSize}
                     fill={editingDigit?.startsWith(`seconds-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
                     pointerEvents="none"
@@ -1208,7 +1295,7 @@ const MqtDisplay = () => {
           }
         } else {
           // MM MODE: Show minutes normally (60+ seconds)
-          const totalMinutes = Math.floor(totalTime / 60);
+          const totalMinutes = Math.ceil(totalTime / 60);
           const minuteStr = String(totalMinutes); // No leading zeros for unlimited format
           const numDigits = minuteStr.length;
 
@@ -1229,8 +1316,8 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('totalMinutes', i, true) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('totalMinutes', i, true) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 {/* Bottom half click area - decrement */}
                 <rect
@@ -1240,15 +1327,15 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('totalMinutes', i, false) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('totalMinutes', i, false) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 {/* Digit text */}
                 <text
                   x={digitX}
                   y={125}
                   textAnchor="middle"
-                  fontFamily={font}
+                  fontFamily={effectiveFontFamily}
                   fontSize={fontSize}
                   fill={editingDigit?.startsWith(`totalMinutes-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
                   pointerEvents="none"
@@ -1265,7 +1352,7 @@ const MqtDisplay = () => {
       // MM:SS FORMAT: Unlimited minutes + traditional seconds (0-59)
       case 'mm:ss': {
         if (isVeryLongDuration) {
-          const totalForDisplay = countUp ? Math.max(0, time) : Math.max(0, time);
+          const totalForDisplay = displaySeconds;
           const days = Math.floor(totalForDisplay / 86400);
           const hoursInDay = Math.floor((totalForDisplay % 86400) / 3600);
           const dayStr = String(days);
@@ -1291,8 +1378,8 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('days', i, true) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('days', i, true) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <rect
                   x={digitX - charWidth / 2}
@@ -1301,14 +1388,14 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('days', i, false) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('days', i, false) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <text
                   x={digitX}
                   y={125}
                   textAnchor="middle"
-                  fontFamily={font}
+                  fontFamily={effectiveFontFamily}
                   fontSize={fontSize}
                   fill={editingDigit?.startsWith(`days-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
                   pointerEvents="none"
@@ -1327,7 +1414,7 @@ const MqtDisplay = () => {
               x={dayX}
               y={125}
               textAnchor="middle"
-              fontFamily={font}
+              fontFamily={effectiveFontFamily}
               fontSize={fontSize * dayLabelScale}
               fill={dynamicTextColor}
             >
@@ -1348,8 +1435,8 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hoursWithinDay', i, true) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('hoursWithinDay', i, true) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <rect
                   x={digitX - charWidth / 2}
@@ -1358,14 +1445,14 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hoursWithinDay', i, false) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('hoursWithinDay', i, false) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <text
                   x={digitX}
                   y={125}
                   textAnchor="middle"
-                  fontFamily={font}
+                  fontFamily={effectiveFontFamily}
                   fontSize={fontSize}
                   fill={editingDigit?.startsWith(`hoursWithinDay-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
                   pointerEvents="none"
@@ -1384,7 +1471,7 @@ const MqtDisplay = () => {
               x={hX2}
               y={125}
               textAnchor="middle"
-              fontFamily={font}
+              fontFamily={effectiveFontFamily}
               fontSize={fontSize * 0.3}
               fill={dynamicTextColor}
             >
@@ -1394,7 +1481,7 @@ const MqtDisplay = () => {
 
         } else if (isLongDuration) {
           // Switch to HH:MM when total duration exceeds threshold
-          const totalForDisplay = countUp ? Math.max(0, time) : Math.max(0, time);
+          const totalForDisplay = displaySeconds;
           const hours = Math.floor(totalForDisplay / 3600);
           const minutesInHour = Math.floor((totalForDisplay % 3600) / 60);
           const hourStr = String(hours);
@@ -1416,8 +1503,8 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hours', i, true) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('hours', i, true) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <rect
                   x={digitX - charWidth / 2}
@@ -1426,14 +1513,14 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('hours', i, false) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('hours', i, false) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <text
                   x={digitX}
                   y={125}
                   textAnchor="middle"
-                  fontFamily={font}
+                  fontFamily={effectiveFontFamily}
                   fontSize={fontSize}
                   fill={editingDigit?.startsWith(`hours-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
                   pointerEvents="none"
@@ -1452,7 +1539,7 @@ const MqtDisplay = () => {
               x={hX}
               y={125}
               textAnchor="middle"
-              fontFamily={font}
+              fontFamily={effectiveFontFamily}
               fontSize={fontSize * 0.3}
               fill={dynamicTextColor}
             >
@@ -1468,7 +1555,7 @@ const MqtDisplay = () => {
               x={colonX}
               y={125}
               textAnchor="middle"
-              fontFamily={font}
+              fontFamily={effectiveFontFamily}
               fontSize={fontSize}
               fill={dynamicTextColor}
             >
@@ -1489,8 +1576,8 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('minutesWithinHour', i, true) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('minutesWithinHour', i, true) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <rect
                   x={digitX - charWidth / 2}
@@ -1499,14 +1586,14 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('minutesWithinHour', i, false) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('minutesWithinHour', i, false) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 <text
                   x={digitX}
                   y={125}
                   textAnchor="middle"
-                  fontFamily={font}
+                  fontFamily={effectiveFontFamily}
                   fontSize={fontSize}
                   fill={editingDigit?.startsWith(`minutesWithinHour-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
                   pointerEvents="none"
@@ -1547,8 +1634,8 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('minutes', i, true) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('minutes', i, true) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 {/* Bottom half - decrement minute digit */}
                 <rect
@@ -1558,15 +1645,15 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('minutes', i, false) : undefined}
-                  pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                  onClick={canEditDigits ? () => adjustDigit('minutes', i, false) : undefined}
+                  pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 {/* Minute digit text */}
                 <text
                   x={digitX}
                   y={125}
                   textAnchor="middle"
-                  fontFamily={font}
+                  fontFamily={effectiveFontFamily}
                   fontSize={fontSize}
                   fill={editingDigit?.startsWith(`minutes-${i}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
                   pointerEvents="none"
@@ -1585,7 +1672,7 @@ const MqtDisplay = () => {
               x={colonX}
               y={125}
               textAnchor="middle"
-              fontFamily={font}
+              fontFamily={effectiveFontFamily}
               fontSize={fontSize}
               fill={dynamicTextColor}
             >
@@ -1607,8 +1694,8 @@ const MqtDisplay = () => {
                 height={fontSize / 2}
                 fill="transparent"
                 className="timer-digit-clickable"
-                onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('seconds', digitIndex, true) : undefined}
-                pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                onClick={canEditDigits ? () => adjustDigit('seconds', digitIndex, true) : undefined}
+                pointerEvents={canEditDigits ? 'auto' : 'none'}
               />
               {/* Bottom half - decrement */}
               <rect
@@ -1618,15 +1705,15 @@ const MqtDisplay = () => {
                 height={fontSize / 2}
                 fill="transparent"
                 className="timer-digit-clickable"
-                onClick={(allowClickableTimer || !isRunning) ? () => adjustDigit('seconds', digitIndex, false) : undefined}
-                pointerEvents={(allowClickableTimer || !isRunning) ? 'auto' : 'none'}
+                onClick={canEditDigits ? () => adjustDigit('seconds', digitIndex, false) : undefined}
+                pointerEvents={canEditDigits ? 'auto' : 'none'}
               />
               {/* Digit text */}
               <text
                 x={secondsStartX + (digitIndex * charWidth) + (charWidth / 2)}
                 y={125}
                 textAnchor="middle"
-                fontFamily={font}
+                fontFamily={effectiveFontFamily}
                 fontSize={fontSize}
                 fill={editingDigit?.startsWith(`seconds-${digitIndex}`) ? (editingDigit.includes('inc') ? '#4caf50' : '#ff6b6b') : dynamicTextColor}
                 pointerEvents="none"
@@ -1652,7 +1739,7 @@ const MqtDisplay = () => {
             x="120"
             y="125"
             textAnchor="middle"
-            fontFamily={font}
+            fontFamily={effectiveFontFamily}
             fontSize={fontSize}
             fill={dynamicTextColor}
             onClick={(e) => e.stopPropagation()}
@@ -1690,13 +1777,16 @@ const MqtDisplay = () => {
           const resetTime = countUp ? 0 : currentDuration;
           setTime(resetTime);
           setSmoothTime(resetTime);
-          setIsRunning(true);
+          endTriggeredRef.current = false;
+          setHasEnded(false);
+          setIsRunning(false);
           break;
         case 'Equal':
         case 'NumpadAdd':
           e.preventDefault();
           setTime(prev => {
-            const newTime = prev + plusMinusStep;
+            const maxUp = countUp ? currentDuration : effectiveMaxSeconds;
+            const newTime = Math.min(maxUp, prev + plusMinusStep);
             setSmoothTime(newTime);
             return newTime;
           });
@@ -1717,7 +1807,7 @@ const MqtDisplay = () => {
 
     window.addEventListener('keydown', handleKey);
     return () => window.removeEventListener('keydown', handleKey);
-  }, [disableKeyboard, currentDuration, countUp, plusMinusStep, navigate]);
+  }, [disableKeyboard, currentDuration, countUp, plusMinusStep, navigate, effectiveMaxSeconds]);
 
 
   // Generate clock markings
@@ -1806,8 +1896,8 @@ const MqtDisplay = () => {
   };
 
   return (
-    <div className={`mqt-display fullscreen theme-${theme}`} style={{ cursor: 'none' }} onClick={handleDisplayClick}>
-      <svg className="circle-svg" viewBox="0 0 240 240">
+    <div className={`mqt-display fullscreen theme-${theme}`} style={{ cursor: 'none', backgroundColor: hasEnded ? '#8B0000' : undefined }} onClick={handleDisplayClick}>
+      <svg className="circle-svg" viewBox="0 0 240 240" fontWeight={effectiveFontWeight}>
         {/* Clock face background circle - conditionally rendered */}
         {!hideClockBackground && (
           <circle
@@ -1848,8 +1938,13 @@ const MqtDisplay = () => {
           transform="rotate(-90 120 120)"
         />
 
+        {/* End logo overlay */}
+        {hasEnded && (
+          <image href="/logo3.png" x={120 - 70} y={120 - 70} width="140" height="140" preserveAspectRatio="xMidYMid meet" />
+        )}
+
         {/* Clickable timer digits */}
-        {renderClickableTime()}
+        {!hasEnded && renderClickableTime()}
       </svg>
     </div>
 
