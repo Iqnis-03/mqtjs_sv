@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Typography, Slider, Checkbox, FormControlLabel,
+  Typography, Checkbox, FormControlLabel,
   TextField, Button, Stack
 } from '@mui/material';
 import './MqtLayout.css';
@@ -163,63 +163,7 @@ const MqtSetting = () => {
   // SECTION: Timer settings (duration + format + some core toggles)
   const TimerSettings = (
     <Stack spacing={2}>
-      {timeFormat === 'mm:ss' ? (
-        <>
-          <Typography variant="body2">
-            Duration: {Math.floor(durationSec / 60)} min {durationSec % 60} sec
-          </Typography>
-          <Stack direction="row" spacing={1}>
-            <TextField
-              fullWidth
-              size="small"
-              type="number"
-              label="Minutes"
-              value={Math.floor(durationSec / 60)}
-              onChange={(e) => {
-                const maxSeconds = limitBreak ? 43200 * 60 : 120 * 60;
-                const currentSeconds = durationSec % 60;
-                const nextMinutes = Math.max(0, Math.min(maxSeconds / 60, parseInt(e.target.value || '0', 10)));
-                const nextDuration = Math.max(1, Math.min(maxSeconds, nextMinutes * 60 + currentSeconds));
-                setDurationSec(nextDuration);
-              }}
-              inputProps={{ min: 0, max: limitBreak ? 43200 : 120 }}
-            />
-            <TextField
-              fullWidth
-              size="small"
-              type="number"
-              label="Seconds"
-              value={durationSec % 60}
-              onChange={(e) => {
-                const maxSeconds = limitBreak ? 43200 * 60 : 120 * 60;
-                const secondsVal = Math.max(0, Math.min(59, parseInt(e.target.value || '0', 10)));
-                const minutesPart = Math.floor(durationSec / 60);
-                const nextDuration = Math.max(1, Math.min(maxSeconds, minutesPart * 60 + secondsVal));
-                setDurationSec(nextDuration);
-              }}
-              inputProps={{ min: 0, max: 59 }}
-            />
-          </Stack>
-          <Slider
-            size="small"
-            min={1}
-            max={limitBreak ? 43200 * 60 : 120 * 60}
-            value={durationSec}
-            onChange={(e, v) => setDurationSec(v)}
-          />
-        </>
-      ) : (
-        <>
-          <Typography variant="body2">Duration: {Math.floor(durationSec / 60)} min</Typography>
-          <Slider
-            size="small"
-            min={1}
-            max={limitBreak ? 43200 : 120}
-            value={Math.max(1, Math.floor(durationSec / 60))}
-            onChange={(e, v) => setDurationSec(Math.max(1, v) * 60)}
-          />
-        </>
-      )}
+      <></>
 
       <Typography variant="body2">Time Format</Typography>
       <Stack direction="row" spacing={2}>
