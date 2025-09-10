@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import {
   Box, Typography, Slider, Checkbox, FormControlLabel,
   Select, MenuItem, TextField, Button, FormControl, InputLabel,
-  Tabs, Tab, Stack
+  Stack
 } from '@mui/material';
+import './MqtLayout.css';
 
 // Local Storage helpers
 const STORAGE_KEY = 'mqt-timer-settings';
@@ -55,7 +56,7 @@ const MqtSetting = () => {
 
   // Load saved settings or use defaults
   const savedSettings = loadSettings() || {};
-  const [tabIndex, setTabIndex] = useState(savedSettings.tabIndex || 0);
+  const [tabIndex, setTabIndex] = useState(savedSettings.tabIndex || 0); // preserved for storage compatibility
   const initialDurationSec = (() => {
     const raw = savedSettings.duration ?? 600; // default 10 minutes in seconds
     if (savedSettings.durationUnit === 'sec') return Math.max(1, raw);
@@ -82,8 +83,6 @@ const MqtSetting = () => {
   const [hideClockBackground, setHideClockBackground] = useState(savedSettings.hideClockBackground || false);
   const [circleProgress, setCircleProgress] = useState(savedSettings.circleProgress || 'full');
   const [allowClickableTimer, setAllowClickableTimer] = useState(savedSettings.allowClickableTimer || false);
-
-  const handleTabChange = (_, newValue) => setTabIndex(newValue);
 
   // Save settings to localStorage whenever they change
   useEffect(() => {
@@ -162,6 +161,7 @@ const MqtSetting = () => {
     navigate(`/display?${params.toString()}`);
   };
 
+  // SECTION: Timer settings (duration + format + some core toggles)
   const TimerSettings = (
     <Stack spacing={2}>
       {timeFormat === 'mm:ss' ? (
@@ -221,9 +221,7 @@ const MqtSetting = () => {
           />
         </>
       )}
-      <FormControlLabel control={<Checkbox size="small" checked={autoRestart} onChange={() => setAutoRestart(!autoRestart)} />} label="Auto Restart" />
-      <FormControlLabel control={<Checkbox size="small" checked={countUp} onChange={() => setCountUp(!countUp)} />} label="Count Up (Reverse)" />
-      <FormControlLabel control={<Checkbox size="small" checked={limitBreak} onChange={() => setLimitBreak(!limitBreak)} />} label="Limit Break (exceed 120 min)" />
+
       <FormControl fullWidth size="small">
         <InputLabel>Time Format</InputLabel>
         <Select value={timeFormat} label="Time Format" onChange={(e) => setTimeFormat(e.target.value)}>
@@ -231,14 +229,16 @@ const MqtSetting = () => {
           <MenuItem value="mm:ss">MM:SS</MenuItem>
         </Select>
       </FormControl>
+
+      <FormControlLabel control={<Checkbox size="small" checked={autoRestart} onChange={() => setAutoRestart(!autoRestart)} />} label="Auto Restart" />
+      <FormControlLabel control={<Checkbox size="small" checked={countUp} onChange={() => setCountUp(!countUp)} />} label="Count Up (Reverse)" />
+      <FormControlLabel control={<Checkbox size="small" checked={limitBreak} onChange={() => setLimitBreak(!limitBreak)} />} label="Limit Break (exceed 120 min)" />
     </Stack>
   );
 
+  // SECTION: Functional controls
   const FunctionSettings = (
     <Stack spacing={2}>
-      <FormControlLabel control={<Checkbox size="small" checked={disableKeyboard} onChange={() => setDisableKeyboard(!disableKeyboard)} />} label="Disable Keyboard Shortcut" />
-      <FormControlLabel control={<Checkbox size="small" checked={allowClickableTimer} onChange={() => setAllowClickableTimer(!allowClickableTimer)} />} label="Allow Clickable Timer when running" />
-      <FormControlLabel control={<Checkbox size="small" checked={hideClockBackground} onChange={() => setHideClockBackground(!hideClockBackground)} />} label="Hide Clock Background" />
       <FormControl fullWidth size="small">
         <InputLabel>Circle Bar Progress</InputLabel>
         <Select value={circleProgress} label="Circle Bar Progress" onChange={(e) => setCircleProgress(e.target.value)}>
@@ -250,7 +250,7 @@ const MqtSetting = () => {
         fullWidth
         size="small"
         type="number"
-        label="+/- Time Step (seconds)"
+        label="+/− Time Step (seconds)"
         value={plusMinusStep}
         onChange={(e) => setPlusMinusStep(Math.max(1, parseInt(e.target.value) || 1))}
         inputProps={{ min: 1, max: 60 }}
@@ -275,9 +275,14 @@ const MqtSetting = () => {
         inputProps={{ min: 1, max: 3600 }}
         helperText="Timer turns yellow when remaining time ≤ this value"
       />
+      <FormControlLabel control={<Checkbox size="small" checked={allowClickableTimer} onChange={() => setAllowClickableTimer(!allowClickableTimer)} />} label="Allow Clickable Timer when running" />
+      <FormControlLabel control={<Checkbox size="small" checked={disableKeyboard} onChange={() => setDisableKeyboard(!disableKeyboard)} />} label="Disable Keyboard Shortcut" />
+      <FormControlLabel control={<Checkbox size="small" checked={hideClockBackground} onChange={() => setHideClockBackground(!hideClockBackground)} />} label="Hide Clock Background" />
+      <FormControlLabel control={<Checkbox size="small" checked={timeFormat === 'mm:ss'} onChange={() => setTimeFormat(timeFormat === 'mm:ss' ? 'mm' : 'mm:ss')} />} label="Ability to set seconds (MM:SS)" />
     </Stack>
   );
 
+  // SOUND preview
   const previewAudioRef = useRef(null);
   const handlePreviewSound = async () => {
     try {
@@ -306,73 +311,6 @@ const MqtSetting = () => {
       }
     };
   }, []);
-
-  const ExtraFunctionSettings = (
-    <Stack spacing={2}>
-      <FormControl fullWidth size="small">
-        <InputLabel>Background Theme</InputLabel>
-        <Select value={theme} label="Background Theme" onChange={(e) => setTheme(e.target.value)}>
-          <MenuItem value="black">Default (Black)</MenuItem>
-          <MenuItem value="emerald">Dark Blue</MenuItem>
-          <MenuItem value="purple">Purple</MenuItem>
-          <MenuItem value="green">Green</MenuItem>
-          <MenuItem value="white">White</MenuItem>
-          <MenuItem value="red">Red</MenuItem>
-          <MenuItem value="blue">Blue</MenuItem>
-        </Select>
-      </FormControl>
-      <FormControl fullWidth size="small">
-        <InputLabel>Font</InputLabel>
-        <Select value={font} label="Font" onChange={(e) => setFont(e.target.value)}>
-          <MenuItem value="Arial">Arial</MenuItem>
-          <MenuItem value="Times New Roman">Times New Roman</MenuItem>
-          <MenuItem value="Mono">Mono</MenuItem>
-          <MenuItem value="Thin">Thin</MenuItem>
-        </Select>
-      </FormControl>
-      <FormControl fullWidth size="small">
-        <InputLabel>Circle Style</InputLabel>
-        <Select value={circleStyle} label="Circle Style" onChange={(e) => setCircleStyle(e.target.value)}>
-          <MenuItem value="thin">Thin</MenuItem>
-          <MenuItem value="fat">Fat</MenuItem>
-          <MenuItem value="bw">B&W Minimalistic</MenuItem>
-        </Select>
-      </FormControl>
-      <Stack direction="row" spacing={1} alignItems="center">
-        <FormControl fullWidth size="small">
-          <InputLabel>Sound Set</InputLabel>
-          <Select value={soundSet} label="Sound Set" onChange={(e) => setSoundSet(parseInt(e.target.value))}>
-            <MenuItem value={0}>None</MenuItem>
-            <MenuItem value={1}>Set 1</MenuItem>
-            <MenuItem value={2}>Set 2</MenuItem>
-            <MenuItem value={3}>Set 3</MenuItem>
-            <MenuItem value={4}>Set 4</MenuItem>
-            <MenuItem value={5}>Set 5</MenuItem>
-          </Select>
-        </FormControl>
-        <Button
-          variant="outlined"
-          size="small"
-          onClick={handlePreviewSound}
-          aria-label="Preview selected sound set"
-          title="Preview selected sound set"
-          disabled={soundSet === 0}
-        >
-          <span role="img" aria-label="speaker">🔊</span>
-        </Button>
-      </Stack>
-      <FormControl fullWidth size="small">
-        <InputLabel>Notification Sound Mod</InputLabel>
-        <Select value={warnMode} label="Notification Sound Mod" onChange={(e) => setWarnMode(e.target.value)}>
-          <MenuItem value="none">None</MenuItem>
-          <MenuItem value="10s">Last 10 Seconds</MenuItem>
-          <MenuItem value="1m">Last 1 Minute (once)</MenuItem>
-          <MenuItem value="5m">Last 5 Minutes (once)</MenuItem>
-        </Select>
-      </FormControl>
-      <FormControlLabel control={<Checkbox size="small" checked={startSoundEnabled} onChange={() => setStartSoundEnabled(!startSoundEnabled)} />} label="Enable Start Sound" />
-    </Stack>
-  );
 
   // Reset to defaults and clear saved settings
   const handleReset = () => {
@@ -409,64 +347,102 @@ const MqtSetting = () => {
     }
   };
 
-
   return (
-    <Box
-      sx={{
-        maxWidth: 600,
-        margin: '2rem auto',
-        background: '#fff',
-        borderRadius: '10px',
-        padding: '1.5rem',
-        boxShadow: '0 4px 16px rgba(0,0,0,0.1)'
-      }}
-    >
-      <Tabs
-        value={tabIndex}
-        onChange={handleTabChange}
-        variant="fullWidth"
-        textColor="primary"
-        indicatorColor="primary"
-        centered
-      >
-        <Tab label="⏲️ Timer Settings" />
-        <Tab label="⚙️ Function" />
-        <Tab label="🛠️ Extra Function" />
-      </Tabs>
+    <div className="mqt-settings-panel mqt-settings-wide">
+      <Typography component="h1" className="mqt-settings-title">Settings</Typography>
 
-      <Box sx={{ mt: 3 }}>
-        {tabIndex === 0 && TimerSettings}
-        {tabIndex === 1 && FunctionSettings}
-        {tabIndex === 2 && ExtraFunctionSettings}
-      </Box>
+      <div className="mqt-settings-grid">
+        <div>
+          <div className="settings-section">
+            <h3>Timer</h3>
+            {TimerSettings}
+          </div>
 
-      <Box sx={{ textAlign: 'center', mt: 4 }}>
-        <Button
-          variant="contained"
-          size="medium"
-          color="success"
-          onClick={handleStart}
-          sx={{ mr: 2 }} // Adds margin-right for spacing
-        >
-          Preview
-        </Button>
+          <div className="settings-section">
+            <h3>Functions</h3>
+            {FunctionSettings}
+          </div>
+        </div>
 
-        <Button
-          variant="outlined"
-          onClick={toggleFullscreen}
-          sx={{ mr: 2 }}
-        >
-          Fullscreen
-        </Button>
-        <Button
-          variant="outlined"
-          color="error"
-          onClick={handleReset}
-        >
-          Reset
-        </Button>
-      </Box>
-    </Box>
+        <div>
+          <div className="settings-section">
+            <h3>Timer Style</h3>
+            <FormControl fullWidth size="small">
+              <InputLabel>Circle Style</InputLabel>
+              <Select value={circleStyle} label="Circle Style" onChange={(e) => setCircleStyle(e.target.value)}>
+                <MenuItem value="thin">Thin</MenuItem>
+                <MenuItem value="fat">Fat</MenuItem>
+                <MenuItem value="bw">B&W Minimalistic</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>Font</InputLabel>
+              <Select value={font} label="Font" onChange={(e) => setFont(e.target.value)}>
+                <MenuItem value="Arial">Arial</MenuItem>
+                <MenuItem value="Times New Roman">Times New Roman</MenuItem>
+                <MenuItem value="Mono">Mono</MenuItem>
+                <MenuItem value="Thin">Thin</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControl fullWidth size="small">
+              <InputLabel>Background Theme</InputLabel>
+              <Select value={theme} label="Background Theme" onChange={(e) => setTheme(e.target.value)}>
+                <MenuItem value="black">Default (Black)</MenuItem>
+                <MenuItem value="emerald">Dark Blue</MenuItem>
+                <MenuItem value="purple">Purple</MenuItem>
+                <MenuItem value="green">Green</MenuItem>
+                <MenuItem value="white">White</MenuItem>
+                <MenuItem value="red">Red</MenuItem>
+                <MenuItem value="blue">Blue</MenuItem>
+              </Select>
+            </FormControl>
+          </div>
+
+          <div className="settings-section">
+            <h3>Sounds</h3>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <FormControl fullWidth size="small">
+                <InputLabel>Sound Set</InputLabel>
+                <Select value={soundSet} label="Sound Set" onChange={(e) => setSoundSet(parseInt(e.target.value))}>
+                  <MenuItem value={0}>None</MenuItem>
+                  <MenuItem value={1}>Set 1</MenuItem>
+                  <MenuItem value={2}>Set 2</MenuItem>
+                  <MenuItem value={3}>Set 3</MenuItem>
+                  <MenuItem value={4}>Set 4</MenuItem>
+                  <MenuItem value={5}>Set 5</MenuItem>
+                </Select>
+              </FormControl>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handlePreviewSound}
+                aria-label="Preview selected sound set"
+                title="Preview selected sound set"
+                disabled={soundSet === 0}
+              >
+                <span role="img" aria-label="speaker">🔊</span>
+              </Button>
+            </Stack>
+            <FormControl fullWidth size="small">
+              <InputLabel>Notification Sound Mod</InputLabel>
+              <Select value={warnMode} label="Notification Sound Mod" onChange={(e) => setWarnMode(e.target.value)}>
+                <MenuItem value="none">None</MenuItem>
+                <MenuItem value="10s">Last 10 Seconds</MenuItem>
+                <MenuItem value="1m">Last 1 Minute (once)</MenuItem>
+                <MenuItem value="5m">Last 5 Minutes (once)</MenuItem>
+              </Select>
+            </FormControl>
+            <FormControlLabel control={<Checkbox size="small" checked={startSoundEnabled} onChange={() => setStartSoundEnabled(!startSoundEnabled)} />} label="Enable Start Sound" />
+          </div>
+        </div>
+      </div>
+
+      <div className="settings-actions">
+        <Button className="btn" variant="contained" size="medium" color="success" onClick={handleStart}>Preview</Button>
+        <Button className="btn" variant="outlined" onClick={toggleFullscreen}>Fullscreen</Button>
+        <Button className="btn" variant="outlined" color="error" onClick={handleReset}>Reset</Button>
+      </div>
+    </div>
   );
 };
 
