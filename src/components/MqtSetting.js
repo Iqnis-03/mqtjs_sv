@@ -242,35 +242,37 @@ const MqtSetting = () => {
         <FormControlLabel control={<Checkbox size="small" checked={circleProgress === 'minute'} onChange={() => setCircleProgress('minute')} />} label="By Minute" />
       </Stack>
 
-      <TextField
-        fullWidth
-        size="small"
-        type="number"
-        label="+/− Time Step (seconds)"
-        value={plusMinusStep}
-        onChange={(e) => setPlusMinusStep(Math.max(1, parseInt(e.target.value) || 1))}
-        inputProps={{ min: 1, max: 60 }}
-      />
-      <TextField
-        fullWidth
-        size="small"
-        type="number"
-        label="Red Color Trigger (seconds)"
-        value={redTrigger}
-        {...createNumberInputHandler(setRedTrigger, 1, 3600, 60)}
-        inputProps={{ min: 1, max: 3600 }}
-        helperText="Timer turns red when remaining time ≤ this value"
-      />
-      <TextField
-        fullWidth
-        size="small"
-        type="number"
-        label="Yellow Color Trigger (seconds)"
-        value={yellowTrigger}
-        {...createNumberInputHandler(setYellowTrigger, 1, 3600, 300)}
-        inputProps={{ min: 1, max: 3600 }}
-        helperText="Timer turns yellow when remaining time ≤ this value"
-      />
+      <div className="inline-fields">
+        <TextField
+          fullWidth
+          size="small"
+          type="number"
+          label="+/− Time Step (seconds)"
+          value={plusMinusStep}
+          onChange={(e) => setPlusMinusStep(Math.max(1, parseInt(e.target.value) || 1))}
+          inputProps={{ min: 1, max: 60 }}
+        />
+        <TextField
+          fullWidth
+          size="small"
+          type="number"
+          label="Red Color Trigger (seconds)"
+          value={redTrigger}
+          {...createNumberInputHandler(setRedTrigger, 1, 3600, 60)}
+          inputProps={{ min: 1, max: 3600 }}
+          helperText="Timer turns red when remaining time ≤ this value"
+        />
+        <TextField
+          fullWidth
+          size="small"
+          type="number"
+          label="Yellow Color Trigger (seconds)"
+          value={yellowTrigger}
+          {...createNumberInputHandler(setYellowTrigger, 1, 3600, 300)}
+          inputProps={{ min: 1, max: 3600 }}
+          helperText="Timer turns yellow when remaining time ≤ this value"
+        />
+      </div>
       <FormControlLabel control={<Checkbox size="small" checked={allowClickableTimer} onChange={() => setAllowClickableTimer(!allowClickableTimer)} />} label="Enable time setting even when timer is running" />
       <FormControlLabel control={<Checkbox size="small" checked={disableKeyboard} onChange={() => setDisableKeyboard(!disableKeyboard)} />} label="Disable keyboard control" />
       <FormControlLabel control={<Checkbox size="small" checked={hideClockBackground} onChange={() => setHideClockBackground(!hideClockBackground)} />} label="Hide Clock Background" />
