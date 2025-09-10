@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Box, Typography, Slider, Checkbox, FormControlLabel,
+  Typography, Slider, Checkbox, FormControlLabel,
   Select, MenuItem, TextField, Button, FormControl, InputLabel,
   Stack
 } from '@mui/material';
