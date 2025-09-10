@@ -349,19 +349,19 @@ const MqtSetting = () => {
 
       <div className="mqt-settings-grid">
         <div>
-          <div className="settings-section">
+          <div className="settings-section settings-section-card">
             <h3>Functions</h3>
             {FunctionSettings}
           </div>
 
-          <div className="settings-section">
+          <div className="settings-section settings-section-card">
             <h3>Timer</h3>
             {TimerSettings}
           </div>
         </div>
 
         <div>
-          <div className="settings-section">
+          <div className="settings-section settings-section-card">
             <h3>Timer Style</h3>
             <Typography variant="body2">Circle Style</Typography>
             <Stack>
