@@ -138,6 +138,58 @@ body {
   max-width: 1200px;
 }
 
+/* Section cards for better grouping */
+.settings-section-card {
+  background: #0f0f0f;
+  border: 1px solid #1f1f1f;
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+/* Inline field grid for numeric inputs */
+.inline-fields {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+}
+
+@media (min-width: 900px) {
+  .inline-fields {
+    grid-template-columns: repeat(3, minmax(180px, 1fr));
+  }
+}
+
+/* Dark theme overrides for MUI inputs/labels */
+.mqt-settings-panel .MuiInputBase-input {
+  color: #ffffff;
+}
+.mqt-settings-panel .MuiFormLabel-root {
+  color: #bbbbbb;
+}
+.mqt-settings-panel .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
+  border-color: #444444;
+}
+.mqt-settings-panel .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
+  border-color: #666666;
+}
+.mqt-settings-panel .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
+  border-color: #888888;
+}
+.mqt-settings-panel .MuiFormHelperText-root {
+  color: #aaaaaa;
+}
+
+/* Checkbox/text colors */
+.mqt-settings-panel .MuiFormControlLabel-label {
+  color: #ffffff;
+}
+.mqt-settings-panel .MuiCheckbox-root {
+  color: #90caf9;
+}
+.mqt-settings-panel .MuiCheckbox-root.Mui-checked {
+  color: #42a5f5;
+}
+
 /* Page title */
 .mqt-settings-title {
   font-size: 2rem;
@@ -169,10 +221,10 @@ body {
 .settings-section h3 {
   font-size: 1rem;
   font-weight: 600;
-  margin: 0 0 0.5rem;
+  margin: 0 0 0.75rem;
   color: #ffffff;
   border-bottom: 1px solid #333333;
-  padding-bottom: 0.25rem;
+  padding-bottom: 0.4rem;
 }
 
 /* Actions row */
