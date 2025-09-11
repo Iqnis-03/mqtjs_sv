@@ -309,7 +309,7 @@ const MqtSetting = () => {
           <div className="settings-section">
             <h3>Sounds</h3>
             <FormControlLabel control={<Checkbox size="small" checked={soundSet !== 0} onChange={(e) => setSoundSet(e.target.checked ? (lastSoundSetRef.current || 1) : 0)} />} label="Timeout sound" />
-            <Stack>
+            <Stack className="options-indent">
               <FormControlLabel control={<Checkbox size="small" checked={soundSet === 1} onChange={() => { setSoundSet(1); handlePreviewSound(1); }} disabled={soundSet === 0} />} label="Sound 1" />
               <FormControlLabel control={<Checkbox size="small" checked={soundSet === 2} onChange={() => { setSoundSet(2); handlePreviewSound(2); }} disabled={soundSet === 0} />} label="Sound 2" />
               <FormControlLabel control={<Checkbox size="small" checked={soundSet === 3} onChange={() => { setSoundSet(3); handlePreviewSound(3); }} disabled={soundSet === 0} />} label="Sound 3" />
@@ -318,7 +318,7 @@ const MqtSetting = () => {
             </Stack>
 
             <FormControlLabel sx={{ mt: 1 }} control={<Checkbox size="small" checked={warnMode !== 'none'} onChange={(e) => setWarnMode(e.target.checked ? (warnMode === 'none' ? '10s' : warnMode) : 'none')} />} label="Notification sound" />
-            <Stack>
+            <Stack className="options-indent">
               <FormControlLabel control={<Checkbox size="small" checked={warnMode === '10s'} onChange={() => { setWarnMode('10s'); handlePreviewSound('warn'); }} disabled={warnMode === 'none'} />} label="Last 10 seconds" />
               <FormControlLabel control={<Checkbox size="small" checked={warnMode === '1m'} onChange={() => { setWarnMode('1m'); handlePreviewSound('warn'); }} disabled={warnMode === 'none'} />} label="Last 1 minute (once)" />
               <FormControlLabel control={<Checkbox size="small" checked={warnMode === '5m'} onChange={() => { setWarnMode('5m'); handlePreviewSound('warn'); }} disabled={warnMode === 'none'} />} label="Last 5 minutes (once)" />
