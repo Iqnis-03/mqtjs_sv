@@ -78,6 +78,7 @@ const MqtSetting = () => {
     typeof savedSettings.startSoundEnabled === 'boolean' ? savedSettings.startSoundEnabled : true
   );
   const [circleProgress, setCircleProgress] = useState(savedSettings.circleProgress || 'minute');
+  const lastSoundSetRef = useRef((savedSettings.soundSet && savedSettings.soundSet !== 0) ? savedSettings.soundSet : 1);
   const [allowClickableTimer, setAllowClickableTimer] = useState(savedSettings.allowClickableTimer || false);
 
   // Save settings to localStorage whenever they change
@@ -103,6 +104,12 @@ const MqtSetting = () => {
     };
     saveSettings(settings);
   }, [tabIndex, durationSec, limitBreak, autoRestart, countUp, disableKeyboard, redTrigger, yellowTrigger, timeFormat, plusMinusStep, circleStyle, soundSet, warnMode, startSoundEnabled, circleProgress, allowClickableTimer]);
+
+  useEffect(() => {
+    if (soundSet !== 0) {
+      lastSoundSetRef.current = soundSet;
+    }
+  }, [soundSet]);
 
   // Helper function to get clean settings values
   const getCleanSettings = () => ({
@@ -301,7 +308,7 @@ const MqtSetting = () => {
 
           <div className="settings-section">
             <h3>Sounds</h3>
-            <FormControlLabel control={<Checkbox size="small" checked={soundSet !== 0} onChange={(e) => setSoundSet(e.target.checked ? (soundSet === 0 ? 1 : soundSet) : 0)} />} label="Timeout sound" />
+            <FormControlLabel control={<Checkbox size="small" checked={soundSet !== 0} onChange={(e) => setSoundSet(e.target.checked ? (lastSoundSetRef.current || 1) : 0)} />} label="Timeout sound" />
             <Stack>
               <FormControlLabel control={<Checkbox size="small" checked={soundSet === 1} onChange={() => { setSoundSet(1); handlePreviewSound(1); }} disabled={soundSet === 0} />} label="Sound 1" />
               <FormControlLabel control={<Checkbox size="small" checked={soundSet === 2} onChange={() => { setSoundSet(2); handlePreviewSound(2); }} disabled={soundSet === 0} />} label="Sound 2" />
