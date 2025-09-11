@@ -277,7 +277,7 @@ const MqtSetting = () => {
           </div>
 
           <div className="settings-section settings-section-card">
-            <h3>Timers</h3>
+            <h3>Extra Function</h3>
             {TimerSettings}
           </div>
         </div>
