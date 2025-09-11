@@ -161,6 +161,7 @@ const MqtSetting = () => {
       <FormControlLabel control={<Checkbox size="small" checked={autoRestart} onChange={() => setAutoRestart(!autoRestart)} />} label="Autorestart" />
       <FormControlLabel control={<Checkbox size="small" checked={countUp} onChange={() => setCountUp(!countUp)} />} label="Count Up (Reverse)" />
       <FormControlLabel control={<Checkbox size="small" checked={circleProgress === 'full'} onChange={(e) => setCircleProgress(e.target.checked ? 'full' : 'minute')} />} label="Total Time Circle Progress" />
+      <FormControlLabel control={<Checkbox size="small" checked={limitBreak} onChange={() => setLimitBreak(!limitBreak)} />} label="Go over 120 minute limit" />
     </Stack>
   );
 
@@ -168,7 +169,6 @@ const MqtSetting = () => {
   const FunctionSettings = (
     <Stack spacing={2}>
       <div className="inline-fields"></div>
-      <FormControlLabel control={<Checkbox size="small" checked={limitBreak} onChange={() => setLimitBreak(!limitBreak)} />} label="Go over 120 minute limit" />
       <FormControlLabel control={<Checkbox size="small" checked={allowClickableTimer} onChange={() => setAllowClickableTimer(!allowClickableTimer)} />} label="Enable time setting even when timer is running" />
       <FormControlLabel control={<Checkbox size="small" checked={disableKeyboard} onChange={() => setDisableKeyboard(!disableKeyboard)} />} label="Disable keyboard control" />
       <FormControlLabel control={<Checkbox size="small" checked={timeFormat === 'mm:ss'} onChange={() => setTimeFormat(timeFormat === 'mm:ss' ? 'mm' : 'mm:ss')} />} label="Ability to set seconds" />
