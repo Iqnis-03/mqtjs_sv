@@ -2,9 +2,16 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './MqtLayout.css';
 
+const FONT_FAMILY = 'Roboto';
+const FONT_WEIGHT = 100; // Thin weight
+
 const MqtDisplay = () => {
   const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
+
+  // Set constant font family and weight
+  const effectiveFontFamily = FONT_FAMILY;
+  const effectiveFontWeight = FONT_WEIGHT;
 
   const limitBreak = params.get('limitBreak') === 'true';
   const rawDuration = Math.max(1, parseInt(params.get('duration') || '600', 10) || 600);
@@ -20,36 +27,23 @@ const MqtDisplay = () => {
   const yellowTrigger = Math.max(1, Math.min(3600, parseInt(yellowTriggerParam, 10) || 300));
   const timeFormat = params.get('timeFormat') || 'mm';
   const plusMinusStep = Math.max(1, parseInt(params.get('plusMinusStep') || '5', 10) || 5);
-  const font = params.get('font') || 'Arial';
-  const effectiveFontFamily = font === 'Thin' ? 'Arial' : font;
-  const effectiveFontWeight = font === 'Thin' ? 200 : undefined;
   const circleStyle = params.get('circleStyle') || 'thin';
-  const theme = params.get('theme') || 'black';
   const soundSet = params.get('soundSet') || '1';
   const startSoundEnabled = params.get('startSoundEnabled') !== 'false';
   const warnMode = params.get('warnMode') || '10s';
   const endSoundEnabled = soundSet !== '0';
-  const hideClockBackground = params.get('hideClockBackground') === 'true';
-  const circleProgress = params.get('circleProgress') || 'full';
+  const circleProgress = params.get('circleProgress') || 'minute';
   const allowClickableTimer = params.get('allowClickableTimer') === 'true';
 
-  // Define text colors based on theme brightness
-  const getTextColor = (theme) => {
-    const darkThemes = ['black', 'emerald', 'purple', 'green', 'red', 'blue'];
-    const lightThemes = ['white'];
-
-    if (darkThemes.includes(theme)) return '#ffffff';
-    if (lightThemes.includes(theme)) return '#333333';
-    return '#333333'; // default
-  };
-
-  const textColor = getTextColor(theme);
+  // Using white text for dark theme
+  const textColor = '#ffffff';
   const soundSuffix = soundSet === '1' ? '' : soundSet;
 
   const [time, setTime] = useState(countUp ? 0 : duration);
   const [isRunning, setIsRunning] = useState(false);
   const [currentDuration, setCurrentDuration] = useState(duration);
-  const [editingDigit, setEditingDigit] = useState(null);
+  const [editingDigit] = useState(null);
+  // const [editingDigit, setEditingDigit] = useState(null);
   const [hasEnded, setHasEnded] = useState(false);
 
   // Smooth progress for continuous animation
@@ -78,17 +72,9 @@ const MqtDisplay = () => {
 
   const dynamicColor = getDynamicColor();
 
-  // Dynamic text color - use red/yellow for warnings, otherwise theme color
+  // Keep consistent white color for text
   const getDynamicTextColor = () => {
-    const timeRemaining = countUp ? currentDuration - time : time;
-
-    if (timeRemaining <= redTrigger) {
-      return '#ff1744'; // Red
-    } else if (timeRemaining <= yellowTrigger) {
-      return '#ffc107'; // Yellow
-    } else {
-      return textColor; // Use theme color
-    }
+    return textColor; // Always return white
   };
 
   const dynamicTextColor = getDynamicTextColor();
@@ -374,8 +360,10 @@ const MqtDisplay = () => {
 
     if (!thresholdReached) return;
 
+    // Ensure we set hasEnded and play the end sound
     endTriggeredRef.current = true;
     setHasEnded(true);
+    setIsRunning(false); // Stop the timer when it ends
     playFromPool(endSounds, 'end');
 
     if (countUp) {
@@ -465,12 +453,18 @@ const MqtDisplay = () => {
   const formatTime = () => {
     const total = getDisplaySeconds();
     const s = total % 60;
+    const h = Math.floor(total / 3600);
+    const m = Math.floor((total % 3600) / 60);
 
     // Ensure s is a valid number
     const safeS = isNaN(s) ? 0 : s;
 
     switch (timeFormat) {
       case 'mm':
+        // When isLongDuration is true, show hours format
+        if (isLongDuration) {
+          return `${h}h${String(m).padStart(2, '0')}`;
+        }
         // Auto-switch to SS format when <60 seconds to avoid showing "0"
         if (total < 60) {
           return String(safeS); // Show seconds directly (59, 58, 57...)
@@ -478,6 +472,10 @@ const MqtDisplay = () => {
         // Normal MM format for 60+ seconds (show ceiling minute until boundary)
         return `${String(Math.ceil(total / 60)).padStart(2, '0')}`;
       case 'mm:ss':
+        // When isLongDuration is true, show hours format with minutes
+        if (isLongDuration) {
+          return `${h}h${String(m).padStart(2, '0')}`;
+        }
         return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(safeS).padStart(2, '0')}`;
       default:
         return `${String(Math.floor(total / 60)).padStart(2, '0')}:${String(safeS).padStart(2, '0')}`;
@@ -486,7 +484,9 @@ const MqtDisplay = () => {
 
   // Determine if we should switch to hour-inclusive display when current time exceeds 120 minutes
   const currentTotalSeconds = getDisplaySeconds();
-  const isLongDuration = Math.floor(currentTotalSeconds / 60) > 120;
+  // Use the URL parameter isLongDuration if provided, otherwise use the default logic
+  const forceShowHours = params.get('isLongDuration') === 'true';
+  const isLongDuration = forceShowHours || Math.floor(currentTotalSeconds / 60) > 120;
   const isVeryLongDuration = Math.floor(currentTotalSeconds / 60) >= 1440;
 
   const canEditDigits = allowClickableTimer || !isRunning;
@@ -586,13 +586,13 @@ const MqtDisplay = () => {
       baseSize = 60; // Original size for short text
     }
 
-    const scaleBoost = hideClockBackground ? 1.5 : 1.3;
+    const scaleBoost = 1.5;
     const baseComputed = Math.round(baseSize * scaleFactor * scaleBoost);
 
-    // Constrain font size to fit within the circle and background
+    // Constrain font size to fit within the circle
     const baseStrokeWidth = circleStyle === 'fat' ? 16 : circleStyle === 'bw' ? 2 : 8;
     const strokeW = getResponsiveStrokeWidth(baseStrokeWidth);
-    const padding = hideClockBackground ? 6 : 14;
+    const padding = 6;
     const innerDiameter = 2 * (radius - strokeW / 2 - padding);
     const heightMax = innerDiameter * 0.9;
 
@@ -711,8 +711,8 @@ const MqtDisplay = () => {
         // Clamp to bounds
         newTotalMinutes = Math.min(MAX_MINUTES_EFFECTIVE, Math.max(1, newTotalMinutes));
 
-        // Convert back to seconds for timer duration
-        newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
+        // Convert back to seconds for timer duration; clear seconds to avoid ceil rounding to next minute
+        newDuration = newTotalMinutes * 60;
         break;
       }
 
@@ -931,8 +931,8 @@ const MqtDisplay = () => {
     }
 
     // VISUAL FEEDBACK (200ms flash: green for increment, red for decrement)
-    setEditingDigit(`${digitType}-${digitPosition}-${isIncrement ? 'inc' : 'dec'}`);
-    setTimeout(() => setEditingDigit(null), 200);
+    // setEditingDigit(`${digitType}-${digitPosition}-${isIncrement ? 'inc' : 'dec'}`);
+    // setTimeout(() => setEditingDigit(null), 200);
   };
 
   /**
@@ -1220,7 +1220,7 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={canEditDigits ? () => adjustDigit('seconds', 1, true) : undefined}
+                  onClick={canEditDigits ? () => adjustDigit('seconds', 0, true) : undefined}
                   pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 {/* Bottom half click area - decrement seconds */}
@@ -1231,7 +1231,7 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={canEditDigits ? () => adjustDigit('seconds', 1, false) : undefined}
+                  onClick={canEditDigits ? () => adjustDigit('seconds', 0, false) : undefined}
                   pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 {/* Seconds text display */}
@@ -1810,75 +1810,6 @@ const MqtDisplay = () => {
   }, [disableKeyboard, currentDuration, countUp, plusMinusStep, navigate, effectiveMaxSeconds]);
 
 
-  // Generate clock markings
-  const generateClockMarkings = () => {
-    const markings = [];
-
-    // Add hour markings (12 markings)
-    for (let i = 0; i < 12; i++) {
-      const angle = (i * 30) - 90; // 30 degrees per hour, start from top
-      const radian = (angle * Math.PI) / 180;
-
-      // Major hour marks - responsive positioning
-      const minViewport = Math.min(window.innerWidth, window.innerHeight);
-      const markOffset = minViewport >= 2560 ? 15 : 10;
-      const markLength = minViewport >= 2560 ? 15 : 10;
-
-      const outerRadius = radius - markOffset;
-      const innerRadius = radius - (markOffset + markLength);
-      const x1 = 120 + outerRadius * Math.cos(radian);
-      const y1 = 120 + outerRadius * Math.sin(radian);
-      const x2 = 120 + innerRadius * Math.cos(radian);
-      const y2 = 120 + innerRadius * Math.sin(radian);
-
-      markings.push(
-        <line
-          key={`hour-${i}`}
-          x1={x1}
-          y1={y1}
-          x2={x2}
-          y2={y2}
-          stroke={textColor}
-          strokeWidth={getResponsiveStrokeWidth(2)}
-        />
-      );
-    }
-
-    // Add minute markings (60 markings, but lighter)
-    for (let i = 0; i < 60; i++) {
-      if (i % 5 !== 0) { // Skip positions where hour markings are
-        const angle = (i * 6) - 90; // 6 degrees per minute, start from top
-        const radian = (angle * Math.PI) / 180;
-
-        const minViewport = Math.min(window.innerWidth, window.innerHeight);
-        const minuteMarkOffset = minViewport >= 2560 ? 15 : 10;
-        const minuteMarkLength = minViewport >= 2560 ? 8 : 5;
-
-        const outerRadius = radius - minuteMarkOffset;
-        const innerRadius = radius - (minuteMarkOffset + minuteMarkLength);
-        const x1 = 120 + outerRadius * Math.cos(radian);
-        const y1 = 120 + outerRadius * Math.sin(radian);
-        const x2 = 120 + innerRadius * Math.cos(radian);
-        const y2 = 120 + innerRadius * Math.sin(radian);
-
-        markings.push(
-          <line
-            key={`minute-${i}`}
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke={textColor}
-            strokeWidth={getResponsiveStrokeWidth(1)}
-            opacity="0.5"
-          />
-        );
-      }
-    }
-
-    return markings;
-  };
-
   const handleDisplayClick = (e) => {
     const svgElement = e.currentTarget.querySelector('.circle-svg');
     if (!svgElement) { setIsRunning(prev => !prev); return; }
@@ -1896,22 +1827,8 @@ const MqtDisplay = () => {
   };
 
   return (
-    <div className={`mqt-display fullscreen theme-${theme}`} style={{ cursor: 'none', backgroundColor: hasEnded ? '#8B0000' : undefined }} onClick={handleDisplayClick}>
+    <div className="mqt-display fullscreen theme-black" style={{ cursor: 'none', backgroundColor: hasEnded ? '#ff3c2c' : undefined }} onClick={handleDisplayClick}>
       <svg className="circle-svg" viewBox="0 0 240 240" fontWeight={effectiveFontWeight}>
-        {/* Clock face background circle - conditionally rendered */}
-        {!hideClockBackground && (
-          <circle
-            r={radius}
-            cx="120"
-            cy="120"
-            fill={textColor}
-            fillOpacity="0.05"
-          />
-        )}
-
-        {/* Clock markings - conditionally rendered */}
-        {!hideClockBackground && generateClockMarkings()}
-
         {/* Base circle stroke - always visible for progress bar */}
         <circle
           r={radius}
@@ -1938,9 +1855,36 @@ const MqtDisplay = () => {
           transform="rotate(-90 120 120)"
         />
 
-        {/* End logo overlay */}
+        {/* End logo overlay with replay function */}
         {hasEnded && (
-          <image href="/logo3.png" x={120 - 70} y={120 - 70} width="140" height="140" preserveAspectRatio="xMidYMid meet" />
+          <g>
+            <rect
+              x="0"
+              y="0"
+              width="240"
+              height="240"
+              fill="none"
+              pointerEvents="all"
+            />
+            <image 
+              href="/logo3.png" 
+              x={120 - 70} 
+              y={120 - 70} 
+              width="140" 
+              height="140" 
+              preserveAspectRatio="xMidYMid meet"
+              onClick={(e) => {
+                e.stopPropagation();
+                const resetTime = countUp ? 0 : currentDuration;
+                setTime(resetTime);
+                setSmoothTime(resetTime);
+                endTriggeredRef.current = false;
+                setHasEnded(false);
+                setIsRunning(true); // Start the timer automatically when logo is clicked
+              }}
+              style={{ cursor: 'pointer' }}
+            />
+          </g>
         )}
 
         {/* Clickable timer digits */}

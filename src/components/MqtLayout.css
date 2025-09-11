@@ -90,33 +90,9 @@ body {
   }
 }
 
-/* Theme colors */
+/* Theme color - using dark theme by default */
 .theme-black {
   background-color: #000000;
-}
-
-.theme-emerald {
-  background-color: #0f172a;
-}
-
-.theme-purple {
-  background-color: #9c27b0;
-}
-
-.theme-green {
-  background-color: #2e7d32;
-}
-
-.theme-white {
-  background-color: #ffffff;
-}
-
-.theme-red {
-  background-color: #f44336;
-}
-
-.theme-blue {
-  background-color: #2196f3;
 }
 
 /* ===== SETTINGS PANEL ===== */
@@ -153,6 +129,10 @@ body {
   gap: 0.75rem;
 }
 
+.inline-fields:empty {
+  display: none;
+}
+
 @media (min-width: 900px) {
   .inline-fields {
     grid-template-columns: repeat(3, minmax(180px, 1fr));
@@ -163,18 +143,23 @@ body {
 .mqt-settings-panel .MuiInputBase-input {
   color: #ffffff;
 }
+
 .mqt-settings-panel .MuiFormLabel-root {
   color: #bbbbbb;
 }
+
 .mqt-settings-panel .MuiOutlinedInput-root .MuiOutlinedInput-notchedOutline {
   border-color: #444444;
 }
+
 .mqt-settings-panel .MuiOutlinedInput-root:hover .MuiOutlinedInput-notchedOutline {
   border-color: #666666;
 }
+
 .mqt-settings-panel .MuiOutlinedInput-root.Mui-focused .MuiOutlinedInput-notchedOutline {
   border-color: #888888;
 }
+
 .mqt-settings-panel .MuiFormHelperText-root {
   color: #aaaaaa;
 }
@@ -183,9 +168,11 @@ body {
 .mqt-settings-panel .MuiFormControlLabel-label {
   color: #ffffff;
 }
+
 .mqt-settings-panel .MuiCheckbox-root {
   color: #90caf9;
 }
+
 .mqt-settings-panel .MuiCheckbox-root.Mui-checked {
   color: #42a5f5;
 }
@@ -202,12 +189,14 @@ body {
 .mqt-settings-grid {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 2rem;
+  gap: 1.5rem;
+  align-items: start;
 }
 
 @media (min-width: 900px) {
   .mqt-settings-grid {
     grid-template-columns: 1fr 1fr;
+    column-gap: 3rem;
   }
 }
 
@@ -219,12 +208,27 @@ body {
 }
 
 .settings-section h3 {
-  font-size: 1rem;
-  font-weight: 600;
-  margin: 0 0 0.75rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+  margin: 0 0 0.5rem;
   color: #ffffff;
   border-bottom: 1px solid #333333;
   padding-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Normalize inner spacing/alignment */
+.settings-section .MuiStack-root { gap: 0.3rem; }
+.settings-section .MuiFormControlLabel-root { margin-left: 0.1rem; }
+.settings-section h3 + .MuiTypography-root { margin-top: 0.1rem; margin-bottom: 0.2rem; }
+/* Align first checkbox under section titles consistently across columns */
+.settings-section h3 + .MuiFormControlLabel-root { margin-top: 0.6rem; }
+
+/* Indentation for nested option groups (sounds) */
+.options-indent { padding-left: 16px; }
+@media (min-width: 900px) {
+  .options-indent { padding-left: 24px; }
 }
 
 /* Actions row */
@@ -233,7 +237,7 @@ body {
   margin-top: 1.5rem;
 }
 
-.settings-actions .btn + .btn {
+.settings-actions .btn+.btn {
   margin-left: 0.5rem;
 }
 

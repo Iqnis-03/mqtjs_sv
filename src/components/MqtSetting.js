@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography, Checkbox, FormControlLabel,
-  TextField, Button, Stack
+  /* TextField, */ Button, Stack
 } from '@mui/material';
 import './MqtLayout.css';
 
@@ -28,7 +28,7 @@ const loadSettings = () => {
 };
 
 // Helper function for number input handling
-const createNumberInputHandler = (setter, min = 1, max = 3600, defaultValue = 60) => ({
+/* const createNumberInputHandler = (setter, min = 1, max = 3600, defaultValue = 60) => ({
   onChange: (e) => {
     const value = e.target.value;
     if (value === '') {
@@ -48,7 +48,7 @@ const createNumberInputHandler = (setter, min = 1, max = 3600, defaultValue = 60
       return current;
     });
   }
-});
+}); */
 
 const MqtSetting = () => {
   const navigate = useNavigate();
@@ -67,21 +67,20 @@ const MqtSetting = () => {
   const [autoRestart, setAutoRestart] = useState(savedSettings.autoRestart || false);
   const [countUp, setCountUp] = useState(savedSettings.countUp || false);
   const [disableKeyboard, setDisableKeyboard] = useState(savedSettings.disableKeyboard || false);
-  const [redTrigger, setRedTrigger] = useState(savedSettings.redTrigger || 60);
+  const [redTrigger, setRedTrigger] = useState(savedSettings.redTrigger || 180);
   const [yellowTrigger, setYellowTrigger] = useState(savedSettings.yellowTrigger || 300);
-  const [timeFormat, setTimeFormat] = useState(savedSettings.timeFormat || 'mm');
+  const [timeFormat, setTimeFormat] = useState('mm');
   const [plusMinusStep, setPlusMinusStep] = useState(savedSettings.plusMinusStep || 5);
-  const [theme, setTheme] = useState(savedSettings.theme || 'black');
-  const [font, setFont] = useState(savedSettings.font || 'Arial');
   const [circleStyle, setCircleStyle] = useState(savedSettings.circleStyle || 'thin');
   const [soundSet, setSoundSet] = useState(savedSettings.soundSet || 1);
   const [warnMode, setWarnMode] = useState(savedSettings.warnMode || '10s');
   const [startSoundEnabled, setStartSoundEnabled] = useState(
     typeof savedSettings.startSoundEnabled === 'boolean' ? savedSettings.startSoundEnabled : true
   );
-  const [hideClockBackground, setHideClockBackground] = useState(savedSettings.hideClockBackground || false);
-  const [circleProgress, setCircleProgress] = useState(savedSettings.circleProgress || 'full');
+  const [circleProgress, setCircleProgress] = useState(savedSettings.circleProgress || 'minute');
+  const lastSoundSetRef = useRef((savedSettings.soundSet && savedSettings.soundSet !== 0) ? savedSettings.soundSet : 1);
   const [allowClickableTimer, setAllowClickableTimer] = useState(savedSettings.allowClickableTimer || false);
+  const [isLongDuration, setIsLongDuration] = useState(savedSettings.isLongDuration || false);
 
   // Save settings to localStorage whenever they change
   useEffect(() => {
@@ -96,19 +95,23 @@ const MqtSetting = () => {
       yellowTrigger: yellowTrigger === '' ? 300 : yellowTrigger,
       timeFormat,
       plusMinusStep,
-      theme,
-      font,
       circleStyle,
       soundSet,
       warnMode,
       startSoundEnabled,
-      hideClockBackground,
       circleProgress,
       allowClickableTimer,
+      isLongDuration,
       durationUnit: 'sec'
     };
     saveSettings(settings);
-  }, [tabIndex, durationSec, limitBreak, autoRestart, countUp, disableKeyboard, redTrigger, yellowTrigger, timeFormat, plusMinusStep, theme, font, circleStyle, soundSet, warnMode, startSoundEnabled, hideClockBackground, circleProgress, allowClickableTimer]);
+  }, [tabIndex, durationSec, limitBreak, autoRestart, countUp, disableKeyboard, redTrigger, yellowTrigger, timeFormat, plusMinusStep, circleStyle, soundSet, warnMode, startSoundEnabled, circleProgress, allowClickableTimer, isLongDuration]);
+
+  useEffect(() => {
+    if (soundSet !== 0) {
+      lastSoundSetRef.current = soundSet;
+    }
+  }, [soundSet]);
 
   // Helper function to get clean settings values
   const getCleanSettings = () => ({
@@ -122,15 +125,13 @@ const MqtSetting = () => {
     yellowTrigger: yellowTrigger === '' ? 300 : yellowTrigger,
     timeFormat,
     plusMinusStep,
-    theme,
-    font,
     circleStyle,
     soundSet,
     warnMode,
     startSoundEnabled,
-    hideClockBackground,
     circleProgress,
     allowClickableTimer,
+    isLongDuration,
     durationUnit: 'sec'
   });
 
@@ -146,16 +147,14 @@ const MqtSetting = () => {
       yellowTrigger: settings.yellowTrigger,
       timeFormat: settings.timeFormat,
       plusMinusStep: settings.plusMinusStep,
-      theme: settings.theme,
-      font: settings.font,
       circleStyle: settings.circleStyle,
       soundSet: settings.soundSet,
       warnMode: settings.warnMode,
-      hideClockBackground: settings.hideClockBackground,
       circleProgress: settings.circleProgress,
       allowClickableTimer: settings.allowClickableTimer,
       startSoundEnabled: settings.startSoundEnabled,
-      limitBreak: settings.limitBreak
+      limitBreak: settings.limitBreak,
+      isLongDuration: settings.isLongDuration
     });
     navigate(`/display?${params.toString()}`);
   };
@@ -163,16 +162,9 @@ const MqtSetting = () => {
   // SECTION: Timer settings (duration + format + some core toggles)
   const TimerSettings = (
     <Stack spacing={2}>
-      <></>
-
-      <Typography variant="body2">Time Format</Typography>
-      <Stack direction="row" spacing={2}>
-        <FormControlLabel control={<Checkbox size="small" checked={timeFormat === 'mm'} onChange={() => setTimeFormat('mm')} />} label="MM" />
-        <FormControlLabel control={<Checkbox size="small" checked={timeFormat === 'mm:ss'} onChange={() => setTimeFormat('mm:ss')} />} label="MM:SS" />
-      </Stack>
-
       <FormControlLabel control={<Checkbox size="small" checked={autoRestart} onChange={() => setAutoRestart(!autoRestart)} />} label="Autorestart" />
       <FormControlLabel control={<Checkbox size="small" checked={countUp} onChange={() => setCountUp(!countUp)} />} label="Count Up (Reverse)" />
+      <FormControlLabel control={<Checkbox size="small" checked={circleProgress === 'full'} onChange={(e) => setCircleProgress(e.target.checked ? 'full' : 'minute')} />} label="Total Time Circle Progress" />
       <FormControlLabel control={<Checkbox size="small" checked={limitBreak} onChange={() => setLimitBreak(!limitBreak)} />} label="Go over 120 minute limit" />
     </Stack>
   );
@@ -180,60 +172,33 @@ const MqtSetting = () => {
   // SECTION: Functional controls
   const FunctionSettings = (
     <Stack spacing={2}>
-      <Typography variant="body2">Circle Bar Progress</Typography>
-      <Stack direction="row" spacing={2}>
-        <FormControlLabel control={<Checkbox size="small" checked={circleProgress === 'full'} onChange={() => setCircleProgress('full')} />} label="Full Time" />
-        <FormControlLabel control={<Checkbox size="small" checked={circleProgress === 'minute'} onChange={() => setCircleProgress('minute')} />} label="By Minute" />
-      </Stack>
-
-      <div className="inline-fields">
-        <TextField
-          fullWidth
-          size="small"
-          type="number"
-          label="+/− Time Step (seconds)"
-          value={plusMinusStep}
-          onChange={(e) => setPlusMinusStep(Math.max(1, parseInt(e.target.value) || 1))}
-          inputProps={{ min: 1, max: 60 }}
-        />
-        <TextField
-          fullWidth
-          size="small"
-          type="number"
-          label="Red Color Trigger (seconds)"
-          value={redTrigger}
-          {...createNumberInputHandler(setRedTrigger, 1, 3600, 60)}
-          inputProps={{ min: 1, max: 3600 }}
-          helperText="Timer turns red when remaining time ≤ this value"
-        />
-        <TextField
-          fullWidth
-          size="small"
-          type="number"
-          label="Yellow Color Trigger (seconds)"
-          value={yellowTrigger}
-          {...createNumberInputHandler(setYellowTrigger, 1, 3600, 300)}
-          inputProps={{ min: 1, max: 3600 }}
-          helperText="Timer turns yellow when remaining time ≤ this value"
-        />
-      </div>
+      <div className="inline-fields"></div>
       <FormControlLabel control={<Checkbox size="small" checked={allowClickableTimer} onChange={() => setAllowClickableTimer(!allowClickableTimer)} />} label="Enable time setting even when timer is running" />
       <FormControlLabel control={<Checkbox size="small" checked={disableKeyboard} onChange={() => setDisableKeyboard(!disableKeyboard)} />} label="Disable keyboard control" />
-      <FormControlLabel control={<Checkbox size="small" checked={hideClockBackground} onChange={() => setHideClockBackground(!hideClockBackground)} />} label="Hide Clock Background" />
       <FormControlLabel control={<Checkbox size="small" checked={timeFormat === 'mm:ss'} onChange={() => setTimeFormat(timeFormat === 'mm:ss' ? 'mm' : 'mm:ss')} />} label="Ability to set seconds" />
+      <FormControlLabel control={<Checkbox size="small" checked={isLongDuration} onChange={() => setIsLongDuration(!isLongDuration)} />} label="Always show Extra Digits" />
     </Stack>
   );
 
   // SOUND preview
   const previewAudioRef = useRef(null);
-  const handlePreviewSound = async () => {
+  const handlePreviewSound = async (previewSet) => {
     try {
-      if (soundSet === 0) return;
+      const target = typeof previewSet === 'number' ? previewSet : soundSet;
+      if (previewSet === 'warn') {
+        const audio = new Audio(`/warn-end-sound.mp3`);
+        previewAudioRef.current = audio;
+        audio.preload = 'auto';
+        audio.volume = 1.0;
+        await audio.play();
+        return;
+      }
+      if (target === 0) return;
       if (previewAudioRef.current) {
         previewAudioRef.current.pause();
         previewAudioRef.current.currentTime = 0;
       }
-      const suffix = soundSet === 1 ? '' : soundSet;
+      const suffix = target === 1 ? '' : target;
       const audio = new Audio(`/end-sound${suffix}.mp3`);
       previewAudioRef.current = audio;
       audio.preload = 'auto';
@@ -256,7 +221,7 @@ const MqtSetting = () => {
 
   // Reset to defaults and clear saved settings
   const handleReset = () => {
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    try { localStorage.removeItem(STORAGE_KEY); } catch { }
     setTabIndex(0);
     setDurationSec(600);
     setLimitBreak(false);
@@ -267,15 +232,13 @@ const MqtSetting = () => {
     setYellowTrigger(300);
     setTimeFormat('mm');
     setPlusMinusStep(5);
-    setTheme('black');
-    setFont('Arial');
     setCircleStyle('thin');
     setSoundSet(1);
     setWarnMode('10s');
     setStartSoundEnabled(true);
-    setHideClockBackground(false);
-    setCircleProgress('full');
+    setCircleProgress('minute');
     setAllowClickableTimer(false);
+    setIsLongDuration(false);
   };
 
   //FULLSCREEN
@@ -297,12 +260,12 @@ const MqtSetting = () => {
         <div>
           <div className="settings-section settings-section-card">
             <h3>Functions</h3>
-            {FunctionSettings}
+            {TimerSettings}
           </div>
 
           <div className="settings-section settings-section-card">
-            <h3>Timer</h3>
-            {TimerSettings}
+            <h3>Extra Functions</h3>
+            {FunctionSettings}
           </div>
         </div>
 
@@ -315,46 +278,24 @@ const MqtSetting = () => {
               <FormControlLabel control={<Checkbox size="small" checked={circleStyle === 'fat'} onChange={() => setCircleStyle('fat')} />} label="Fat" />
               <FormControlLabel control={<Checkbox size="small" checked={circleStyle === 'bw'} onChange={() => setCircleStyle('bw')} />} label="B&W minimalistic" />
             </Stack>
-
-            <Typography variant="body2" sx={{ mt: 1 }}>Font</Typography>
-            <Stack>
-              <FormControlLabel control={<Checkbox size="small" checked={font === 'Arial'} onChange={() => setFont('Arial')} />} label="Arial" />
-              <FormControlLabel control={<Checkbox size="small" checked={font === 'Times New Roman'} onChange={() => setFont('Times New Roman')} />} label="Times New Roman" />
-              <FormControlLabel control={<Checkbox size="small" checked={font === 'Mono'} onChange={() => setFont('Mono')} />} label="Mono" />
-              <FormControlLabel control={<Checkbox size="small" checked={font === 'Thin'} onChange={() => setFont('Thin')} />} label="Thin" />
-            </Stack>
-
-            <Typography variant="body2" sx={{ mt: 1 }}>Background Theme</Typography>
-            <Stack>
-              <FormControlLabel control={<Checkbox size="small" checked={theme === 'black'} onChange={() => setTheme('black')} />} label="Default (Black)" />
-              <FormControlLabel control={<Checkbox size="small" checked={theme === 'emerald'} onChange={() => setTheme('emerald')} />} label="Dark Blue" />
-              <FormControlLabel control={<Checkbox size="small" checked={theme === 'purple'} onChange={() => setTheme('purple')} />} label="Purple" />
-              <FormControlLabel control={<Checkbox size="small" checked={theme === 'green'} onChange={() => setTheme('green')} />} label="Green" />
-              <FormControlLabel control={<Checkbox size="small" checked={theme === 'white'} onChange={() => setTheme('white')} />} label="White" />
-              <FormControlLabel control={<Checkbox size="small" checked={theme === 'red'} onChange={() => setTheme('red')} />} label="Red" />
-              <FormControlLabel control={<Checkbox size="small" checked={theme === 'blue'} onChange={() => setTheme('blue')} />} label="Blue" />
-            </Stack>
           </div>
 
           <div className="settings-section">
             <h3>Sounds</h3>
-            <Typography variant="body2">Sound Set</Typography>
-            <Stack>
-              <FormControlLabel control={<Checkbox size="small" checked={soundSet === 0} onChange={() => setSoundSet(0)} />} label="None" />
-              <FormControlLabel control={<Checkbox size="small" checked={soundSet === 1} onChange={() => setSoundSet(1)} />} label="Sound 1" />
-              <FormControlLabel control={<Checkbox size="small" checked={soundSet === 2} onChange={() => setSoundSet(2)} />} label="Sound 2" />
-              <FormControlLabel control={<Checkbox size="small" checked={soundSet === 3} onChange={() => setSoundSet(3)} />} label="Sound 3" />
-              <FormControlLabel control={<Checkbox size="small" checked={soundSet === 4} onChange={() => setSoundSet(4)} />} label="Sound 4" />
-              <FormControlLabel control={<Checkbox size="small" checked={soundSet === 5} onChange={() => setSoundSet(5)} />} label="Sound 5" />
+            <FormControlLabel control={<Checkbox size="small" checked={soundSet !== 0} onChange={(e) => setSoundSet(e.target.checked ? (lastSoundSetRef.current || 1) : 0)} />} label="Timeout sound" />
+            <Stack className="options-indent">
+              <FormControlLabel control={<Checkbox size="small" checked={soundSet === 1} onChange={() => { setSoundSet(1); handlePreviewSound(1); }} disabled={soundSet === 0} />} label="Sound 1" />
+              <FormControlLabel control={<Checkbox size="small" checked={soundSet === 2} onChange={() => { setSoundSet(2); handlePreviewSound(2); }} disabled={soundSet === 0} />} label="Sound 2" />
+              <FormControlLabel control={<Checkbox size="small" checked={soundSet === 3} onChange={() => { setSoundSet(3); handlePreviewSound(3); }} disabled={soundSet === 0} />} label="Sound 3" />
+              <FormControlLabel control={<Checkbox size="small" checked={soundSet === 4} onChange={() => { setSoundSet(4); handlePreviewSound(4); }} disabled={soundSet === 0} />} label="Sound 4" />
+              <FormControlLabel control={<Checkbox size="small" checked={soundSet === 5} onChange={() => { setSoundSet(5); handlePreviewSound(5); }} disabled={soundSet === 0} />} label="Sound 5" />
             </Stack>
-            <Button variant="outlined" size="small" onClick={handlePreviewSound} aria-label="Preview selected sound set" title="Preview selected sound set" disabled={soundSet === 0}>🔊</Button>
 
-            <Typography variant="body2" sx={{ mt: 1 }}>Notification sound</Typography>
-            <Stack>
-              <FormControlLabel control={<Checkbox size="small" checked={warnMode === 'none'} onChange={() => setWarnMode('none')} />} label="None" />
-              <FormControlLabel control={<Checkbox size="small" checked={warnMode === '10s'} onChange={() => setWarnMode('10s')} />} label="Last 10 seconds" />
-              <FormControlLabel control={<Checkbox size="small" checked={warnMode === '1m'} onChange={() => setWarnMode('1m')} />} label="Last 1 minute (once)" />
-              <FormControlLabel control={<Checkbox size="small" checked={warnMode === '5m'} onChange={() => setWarnMode('5m')} />} label="Last 5 minutes (once)" />
+            <FormControlLabel sx={{ mt: 1 }} control={<Checkbox size="small" checked={warnMode !== 'none'} onChange={(e) => setWarnMode(e.target.checked ? (warnMode === 'none' ? '10s' : warnMode) : 'none')} />} label="Notification sound" />
+            <Stack className="options-indent">
+              <FormControlLabel control={<Checkbox size="small" checked={warnMode === '10s'} onChange={() => { setWarnMode('10s'); handlePreviewSound('warn'); }} disabled={warnMode === 'none'} />} label="Last 10 seconds" />
+              <FormControlLabel control={<Checkbox size="small" checked={warnMode === '1m'} onChange={() => { setWarnMode('1m'); handlePreviewSound('warn'); }} disabled={warnMode === 'none'} />} label="Last 1 minute (once)" />
+              <FormControlLabel control={<Checkbox size="small" checked={warnMode === '5m'} onChange={() => { setWarnMode('5m'); handlePreviewSound('warn'); }} disabled={warnMode === 'none'} />} label="Last 5 minutes (once)" />
             </Stack>
             <FormControlLabel control={<Checkbox size="small" checked={startSoundEnabled} onChange={() => setStartSoundEnabled(!startSoundEnabled)} />} label="Enable Start Sound" />
           </div>
