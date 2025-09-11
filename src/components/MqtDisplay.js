@@ -27,7 +27,9 @@ const MqtDisplay = () => {
   const yellowTrigger = Math.max(1, Math.min(3600, parseInt(yellowTriggerParam, 10) || 300));
   const timeFormat = params.get('timeFormat') || 'mm';
   const plusMinusStep = Math.max(1, parseInt(params.get('plusMinusStep') || '5', 10) || 5);
-  const circleStyle = params.get('circleStyle') || 'thin';
+  const circleStyleRaw = params.get('circleStyle') || 'thin';
+  const isBWStyle = circleStyleRaw === 'bw' || /-bw$/.test(circleStyleRaw);
+  const circleStyle = circleStyleRaw.includes('fat') ? 'fat' : 'thin';
   const soundSet = params.get('soundSet') || '1';
   const startSoundEnabled = params.get('startSoundEnabled') !== 'false';
   const warnMode = params.get('warnMode') || '10s';
@@ -451,7 +453,7 @@ const MqtDisplay = () => {
     ? circumference // show no progress (empty) so only grey base circle remains
     : (countUp ? circumference * (1 - safePercent) : -circumference * safePercent);
 
-  const baseStrokeWidth = circleStyle === 'fat' ? 16 : circleStyle === 'bw' ? 2 : 8;
+  const baseStrokeWidth = circleStyle === 'fat' ? 16 : 8;
   const computedStrokeWidth = getResponsiveStrokeWidth(baseStrokeWidth);
 
   // Time format
@@ -583,7 +585,7 @@ const MqtDisplay = () => {
     const baseComputed = Math.round(baseSize * scaleFactor * scaleBoost);
 
     // Constrain font size to fit within the circle
-    const baseStrokeWidth = circleStyle === 'fat' ? 16 : circleStyle === 'bw' ? 2 : 8;
+    const baseStrokeWidth = circleStyle === 'fat' ? 16 : 8;
     const strokeW = getResponsiveStrokeWidth(baseStrokeWidth);
     const padding = 6;
     const innerDiameter = 2 * (radius - strokeW / 2 - padding);
@@ -1830,7 +1832,7 @@ const MqtDisplay = () => {
           stroke="#666"
           strokeWidth={computedStrokeWidth}
           fill="none"
-          opacity={circleStyle === 'bw' ? 0.3 : 1}
+          opacity={isBWStyle ? 0.3 : 1}
         />
 
         {/* Progress circle */}
@@ -1839,7 +1841,7 @@ const MqtDisplay = () => {
           r={radius}
           cx="120"
           cy="120"
-          stroke={circleStyle === 'bw' ? dynamicTextColor : dynamicColor}
+          stroke={isBWStyle ? dynamicTextColor : dynamicColor}
           strokeWidth={computedStrokeWidth}
           fill="none"
           strokeDasharray={circumference}
