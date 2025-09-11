@@ -186,11 +186,13 @@ body {
   display: grid;
   grid-template-columns: 1fr;
   gap: 2rem;
+  align-items: start;
 }
 
 @media (min-width: 900px) {
   .mqt-settings-grid {
     grid-template-columns: 1fr 1fr;
+    column-gap: 2.5rem;
   }
 }
 
@@ -202,13 +204,19 @@ body {
 }
 
 .settings-section h3 {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 0.95rem;
+  font-weight: 700;
   margin: 0 0 0.75rem;
   color: #ffffff;
   border-bottom: 1px solid #333333;
   padding-bottom: 0.4rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
 }
+
+/* Normalize inner spacing/alignment */
+.settings-section .MuiStack-root { gap: 0.4rem; }
+.settings-section .MuiFormControlLabel-root { margin-left: 0.1rem; }
 
 /* Actions row */
 .settings-actions {
