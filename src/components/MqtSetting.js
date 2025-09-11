@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Typography, Checkbox, FormControlLabel,
-  TextField, Button, Stack
+  /* TextField, */ Button, Stack
 } from '@mui/material';
 import './MqtLayout.css';
 
@@ -28,7 +28,7 @@ const loadSettings = () => {
 };
 
 // Helper function for number input handling
-const createNumberInputHandler = (setter, min = 1, max = 3600, defaultValue = 60) => ({
+/* const createNumberInputHandler = (setter, min = 1, max = 3600, defaultValue = 60) => ({
   onChange: (e) => {
     const value = e.target.value;
     if (value === '') {
@@ -48,7 +48,7 @@ const createNumberInputHandler = (setter, min = 1, max = 3600, defaultValue = 60
       return current;
     });
   }
-});
+}); */
 
 const MqtSetting = () => {
   const navigate = useNavigate();
@@ -67,19 +67,16 @@ const MqtSetting = () => {
   const [autoRestart, setAutoRestart] = useState(savedSettings.autoRestart || false);
   const [countUp, setCountUp] = useState(savedSettings.countUp || false);
   const [disableKeyboard, setDisableKeyboard] = useState(savedSettings.disableKeyboard || false);
-  const [redTrigger, setRedTrigger] = useState(savedSettings.redTrigger || 60);
+  const [redTrigger, setRedTrigger] = useState(savedSettings.redTrigger || 180);
   const [yellowTrigger, setYellowTrigger] = useState(savedSettings.yellowTrigger || 300);
-  const [timeFormat, setTimeFormat] = useState(savedSettings.timeFormat || 'mm');
+  const [timeFormat, setTimeFormat] = useState('mm');
   const [plusMinusStep, setPlusMinusStep] = useState(savedSettings.plusMinusStep || 5);
-  const [theme, setTheme] = useState(savedSettings.theme || 'black');
-  const [font, setFont] = useState(savedSettings.font || 'Arial');
   const [circleStyle, setCircleStyle] = useState(savedSettings.circleStyle || 'thin');
   const [soundSet, setSoundSet] = useState(savedSettings.soundSet || 1);
   const [warnMode, setWarnMode] = useState(savedSettings.warnMode || '10s');
   const [startSoundEnabled, setStartSoundEnabled] = useState(
     typeof savedSettings.startSoundEnabled === 'boolean' ? savedSettings.startSoundEnabled : true
   );
-  const [hideClockBackground, setHideClockBackground] = useState(savedSettings.hideClockBackground || false);
   const [circleProgress, setCircleProgress] = useState(savedSettings.circleProgress || 'full');
   const [allowClickableTimer, setAllowClickableTimer] = useState(savedSettings.allowClickableTimer || false);
 
@@ -96,19 +93,16 @@ const MqtSetting = () => {
       yellowTrigger: yellowTrigger === '' ? 300 : yellowTrigger,
       timeFormat,
       plusMinusStep,
-      theme,
-      font,
       circleStyle,
       soundSet,
       warnMode,
       startSoundEnabled,
-      hideClockBackground,
       circleProgress,
       allowClickableTimer,
       durationUnit: 'sec'
     };
     saveSettings(settings);
-  }, [tabIndex, durationSec, limitBreak, autoRestart, countUp, disableKeyboard, redTrigger, yellowTrigger, timeFormat, plusMinusStep, theme, font, circleStyle, soundSet, warnMode, startSoundEnabled, hideClockBackground, circleProgress, allowClickableTimer]);
+  }, [tabIndex, durationSec, limitBreak, autoRestart, countUp, disableKeyboard, redTrigger, yellowTrigger, timeFormat, plusMinusStep, circleStyle, soundSet, warnMode, startSoundEnabled, circleProgress, allowClickableTimer]);
 
   // Helper function to get clean settings values
   const getCleanSettings = () => ({
@@ -122,13 +116,10 @@ const MqtSetting = () => {
     yellowTrigger: yellowTrigger === '' ? 300 : yellowTrigger,
     timeFormat,
     plusMinusStep,
-    theme,
-    font,
     circleStyle,
     soundSet,
     warnMode,
     startSoundEnabled,
-    hideClockBackground,
     circleProgress,
     allowClickableTimer,
     durationUnit: 'sec'
@@ -146,12 +137,9 @@ const MqtSetting = () => {
       yellowTrigger: settings.yellowTrigger,
       timeFormat: settings.timeFormat,
       plusMinusStep: settings.plusMinusStep,
-      theme: settings.theme,
-      font: settings.font,
       circleStyle: settings.circleStyle,
       soundSet: settings.soundSet,
       warnMode: settings.warnMode,
-      hideClockBackground: settings.hideClockBackground,
       circleProgress: settings.circleProgress,
       allowClickableTimer: settings.allowClickableTimer,
       startSoundEnabled: settings.startSoundEnabled,
@@ -163,14 +151,6 @@ const MqtSetting = () => {
   // SECTION: Timer settings (duration + format + some core toggles)
   const TimerSettings = (
     <Stack spacing={2}>
-      <></>
-
-      <Typography variant="body2">Time Format</Typography>
-      <Stack direction="row" spacing={2}>
-        <FormControlLabel control={<Checkbox size="small" checked={timeFormat === 'mm'} onChange={() => setTimeFormat('mm')} />} label="MM" />
-        <FormControlLabel control={<Checkbox size="small" checked={timeFormat === 'mm:ss'} onChange={() => setTimeFormat('mm:ss')} />} label="MM:SS" />
-      </Stack>
-
       <FormControlLabel control={<Checkbox size="small" checked={autoRestart} onChange={() => setAutoRestart(!autoRestart)} />} label="Autorestart" />
       <FormControlLabel control={<Checkbox size="small" checked={countUp} onChange={() => setCountUp(!countUp)} />} label="Count Up (Reverse)" />
       <FormControlLabel control={<Checkbox size="small" checked={limitBreak} onChange={() => setLimitBreak(!limitBreak)} />} label="Go over 120 minute limit" />
@@ -187,7 +167,7 @@ const MqtSetting = () => {
       </Stack>
 
       <div className="inline-fields">
-        <TextField
+        {/* <TextField
           fullWidth
           size="small"
           type="number"
@@ -215,11 +195,10 @@ const MqtSetting = () => {
           {...createNumberInputHandler(setYellowTrigger, 1, 3600, 300)}
           inputProps={{ min: 1, max: 3600 }}
           helperText="Timer turns yellow when remaining time ≤ this value"
-        />
+        /> */}
       </div>
       <FormControlLabel control={<Checkbox size="small" checked={allowClickableTimer} onChange={() => setAllowClickableTimer(!allowClickableTimer)} />} label="Enable time setting even when timer is running" />
       <FormControlLabel control={<Checkbox size="small" checked={disableKeyboard} onChange={() => setDisableKeyboard(!disableKeyboard)} />} label="Disable keyboard control" />
-      <FormControlLabel control={<Checkbox size="small" checked={hideClockBackground} onChange={() => setHideClockBackground(!hideClockBackground)} />} label="Hide Clock Background" />
       <FormControlLabel control={<Checkbox size="small" checked={timeFormat === 'mm:ss'} onChange={() => setTimeFormat(timeFormat === 'mm:ss' ? 'mm' : 'mm:ss')} />} label="Ability to set seconds" />
     </Stack>
   );
@@ -256,7 +235,7 @@ const MqtSetting = () => {
 
   // Reset to defaults and clear saved settings
   const handleReset = () => {
-    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    try { localStorage.removeItem(STORAGE_KEY); } catch { }
     setTabIndex(0);
     setDurationSec(600);
     setLimitBreak(false);
@@ -267,13 +246,10 @@ const MqtSetting = () => {
     setYellowTrigger(300);
     setTimeFormat('mm');
     setPlusMinusStep(5);
-    setTheme('black');
-    setFont('Arial');
     setCircleStyle('thin');
     setSoundSet(1);
     setWarnMode('10s');
     setStartSoundEnabled(true);
-    setHideClockBackground(false);
     setCircleProgress('full');
     setAllowClickableTimer(false);
   };
@@ -314,25 +290,6 @@ const MqtSetting = () => {
               <FormControlLabel control={<Checkbox size="small" checked={circleStyle === 'thin'} onChange={() => setCircleStyle('thin')} />} label="Thin" />
               <FormControlLabel control={<Checkbox size="small" checked={circleStyle === 'fat'} onChange={() => setCircleStyle('fat')} />} label="Fat" />
               <FormControlLabel control={<Checkbox size="small" checked={circleStyle === 'bw'} onChange={() => setCircleStyle('bw')} />} label="B&W minimalistic" />
-            </Stack>
-
-            <Typography variant="body2" sx={{ mt: 1 }}>Font</Typography>
-            <Stack>
-              <FormControlLabel control={<Checkbox size="small" checked={font === 'Arial'} onChange={() => setFont('Arial')} />} label="Arial" />
-              <FormControlLabel control={<Checkbox size="small" checked={font === 'Times New Roman'} onChange={() => setFont('Times New Roman')} />} label="Times New Roman" />
-              <FormControlLabel control={<Checkbox size="small" checked={font === 'Mono'} onChange={() => setFont('Mono')} />} label="Mono" />
-              <FormControlLabel control={<Checkbox size="small" checked={font === 'Thin'} onChange={() => setFont('Thin')} />} label="Thin" />
-            </Stack>
-
-            <Typography variant="body2" sx={{ mt: 1 }}>Background Theme</Typography>
-            <Stack>
-              <FormControlLabel control={<Checkbox size="small" checked={theme === 'black'} onChange={() => setTheme('black')} />} label="Default (Black)" />
-              <FormControlLabel control={<Checkbox size="small" checked={theme === 'emerald'} onChange={() => setTheme('emerald')} />} label="Dark Blue" />
-              <FormControlLabel control={<Checkbox size="small" checked={theme === 'purple'} onChange={() => setTheme('purple')} />} label="Purple" />
-              <FormControlLabel control={<Checkbox size="small" checked={theme === 'green'} onChange={() => setTheme('green')} />} label="Green" />
-              <FormControlLabel control={<Checkbox size="small" checked={theme === 'white'} onChange={() => setTheme('white')} />} label="White" />
-              <FormControlLabel control={<Checkbox size="small" checked={theme === 'red'} onChange={() => setTheme('red')} />} label="Red" />
-              <FormControlLabel control={<Checkbox size="small" checked={theme === 'blue'} onChange={() => setTheme('blue')} />} label="Blue" />
             </Stack>
           </div>
 
