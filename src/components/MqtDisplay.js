@@ -704,8 +704,8 @@ const MqtDisplay = () => {
         // Clamp to bounds
         newTotalMinutes = Math.min(MAX_MINUTES_EFFECTIVE, Math.max(1, newTotalMinutes));
 
-        // Convert back to seconds for timer duration
-        newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
+        // Convert back to seconds for timer duration; clear seconds to avoid ceil rounding to next minute
+        newDuration = newTotalMinutes * 60;
         break;
       }
 
