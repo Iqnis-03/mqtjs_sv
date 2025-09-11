@@ -71,7 +71,18 @@ const MqtSetting = () => {
   const [yellowTrigger, setYellowTrigger] = useState(savedSettings.yellowTrigger || 300);
   const [timeFormat, setTimeFormat] = useState('mm');
   const [plusMinusStep, setPlusMinusStep] = useState(savedSettings.plusMinusStep || 5);
-  const [circleStyle, setCircleStyle] = useState(savedSettings.circleStyle || 'thin');
+  const parseCircleStyle = (val) => {
+    if (!val) return { base: 'thin', bw: false };
+    if (typeof val === 'string' && val.endsWith('-bw')) {
+      const base = val.replace('-bw', '') || 'thin';
+      return { base, bw: true };
+    }
+    if (val === 'bw') return { base: 'thin', bw: true };
+    return { base: val, bw: false };
+  };
+  const parsedCircleStyle = parseCircleStyle(savedSettings.circleStyle || 'thin');
+  const [circleStyle, setCircleStyle] = useState(parsedCircleStyle.base || 'thin');
+  const [bwMinimalistic, setBwMinimalistic] = useState(!!parsedCircleStyle.bw);
   const [soundSet, setSoundSet] = useState(savedSettings.soundSet || 1);
   const [warnMode, setWarnMode] = useState(savedSettings.warnMode || '10s');
   const [startSoundEnabled, setStartSoundEnabled] = useState(
@@ -94,7 +105,7 @@ const MqtSetting = () => {
       yellowTrigger: yellowTrigger === '' ? 300 : yellowTrigger,
       timeFormat,
       plusMinusStep,
-      circleStyle,
+      circleStyle: bwMinimalistic ? `${circleStyle}-bw` : circleStyle,
       soundSet,
       warnMode,
       startSoundEnabled,
@@ -103,7 +114,7 @@ const MqtSetting = () => {
       durationUnit: 'sec'
     };
     saveSettings(settings);
-  }, [tabIndex, durationSec, limitBreak, autoRestart, countUp, disableKeyboard, redTrigger, yellowTrigger, timeFormat, plusMinusStep, circleStyle, soundSet, warnMode, startSoundEnabled, circleProgress, allowClickableTimer]);
+  }, [tabIndex, durationSec, limitBreak, autoRestart, countUp, disableKeyboard, redTrigger, yellowTrigger, timeFormat, plusMinusStep, circleStyle, bwMinimalistic, soundSet, warnMode, startSoundEnabled, circleProgress, allowClickableTimer]);
 
   useEffect(() => {
     if (soundSet !== 0) {
@@ -123,7 +134,7 @@ const MqtSetting = () => {
     yellowTrigger: yellowTrigger === '' ? 300 : yellowTrigger,
     timeFormat,
     plusMinusStep,
-    circleStyle,
+    circleStyle: bwMinimalistic ? `${circleStyle}-bw` : circleStyle,
     soundSet,
     warnMode,
     startSoundEnabled,
@@ -228,6 +239,7 @@ const MqtSetting = () => {
     setTimeFormat('mm');
     setPlusMinusStep(5);
     setCircleStyle('thin');
+    setBwMinimalistic(false);
     setSoundSet(1);
     setWarnMode('10s');
     setStartSoundEnabled(true);
@@ -270,7 +282,7 @@ const MqtSetting = () => {
             <Stack>
               <FormControlLabel control={<Checkbox size="small" checked={circleStyle === 'thin'} onChange={() => setCircleStyle('thin')} />} label="Thin" />
               <FormControlLabel control={<Checkbox size="small" checked={circleStyle === 'fat'} onChange={() => setCircleStyle('fat')} />} label="Fat" />
-              <FormControlLabel control={<Checkbox size="small" checked={circleStyle === 'bw'} onChange={() => setCircleStyle('bw')} />} label="B&W minimalistic" />
+              <FormControlLabel control={<Checkbox size="small" checked={bwMinimalistic} onChange={() => setBwMinimalistic(!bwMinimalistic)} />} label="B&W minimalistic" />
             </Stack>
           </div>
 
