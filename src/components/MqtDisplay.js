@@ -32,7 +32,7 @@ const MqtDisplay = () => {
   const startSoundEnabled = params.get('startSoundEnabled') !== 'false';
   const warnMode = params.get('warnMode') || '10s';
   const endSoundEnabled = soundSet !== '0';
-  const circleProgress = params.get('circleProgress') || 'full';
+  const circleProgress = params.get('circleProgress') || 'minute';
   const allowClickableTimer = params.get('allowClickableTimer') === 'true';
 
   // Using white text for dark theme
