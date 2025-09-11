@@ -2,9 +2,16 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './MqtLayout.css';
 
+const FONT_FAMILY = 'Roboto';
+const FONT_WEIGHT = 100; // Thin weight
+
 const MqtDisplay = () => {
   const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
+
+  // Set constant font family and weight
+  const effectiveFontFamily = FONT_FAMILY;
+  const effectiveFontWeight = FONT_WEIGHT;
 
   const limitBreak = params.get('limitBreak') === 'true';
   const rawDuration = Math.max(1, parseInt(params.get('duration') || '600', 10) || 600);
@@ -20,30 +27,16 @@ const MqtDisplay = () => {
   const yellowTrigger = Math.max(1, Math.min(3600, parseInt(yellowTriggerParam, 10) || 300));
   const timeFormat = params.get('timeFormat') || 'mm';
   const plusMinusStep = Math.max(1, parseInt(params.get('plusMinusStep') || '5', 10) || 5);
-  const font = params.get('font') || 'Arial';
-  const effectiveFontFamily = font === 'Thin' ? 'Arial' : font;
-  const effectiveFontWeight = font === 'Thin' ? 200 : undefined;
   const circleStyle = params.get('circleStyle') || 'thin';
-  const theme = params.get('theme') || 'black';
   const soundSet = params.get('soundSet') || '1';
   const startSoundEnabled = params.get('startSoundEnabled') !== 'false';
   const warnMode = params.get('warnMode') || '10s';
   const endSoundEnabled = soundSet !== '0';
-  const hideClockBackground = params.get('hideClockBackground') === 'true';
   const circleProgress = params.get('circleProgress') || 'full';
   const allowClickableTimer = params.get('allowClickableTimer') === 'true';
 
-  // Define text colors based on theme brightness
-  const getTextColor = (theme) => {
-    const darkThemes = ['black', 'emerald', 'purple', 'green', 'red', 'blue'];
-    const lightThemes = ['white'];
-
-    if (darkThemes.includes(theme)) return '#ffffff';
-    if (lightThemes.includes(theme)) return '#333333';
-    return '#333333'; // default
-  };
-
-  const textColor = getTextColor(theme);
+  // Using white text for dark theme
+  const textColor = '#ffffff';
   const soundSuffix = soundSet === '1' ? '' : soundSet;
 
   const [time, setTime] = useState(countUp ? 0 : duration);
@@ -586,13 +579,13 @@ const MqtDisplay = () => {
       baseSize = 60; // Original size for short text
     }
 
-    const scaleBoost = hideClockBackground ? 1.5 : 1.3;
+    const scaleBoost = 1.5;
     const baseComputed = Math.round(baseSize * scaleFactor * scaleBoost);
 
-    // Constrain font size to fit within the circle and background
+    // Constrain font size to fit within the circle
     const baseStrokeWidth = circleStyle === 'fat' ? 16 : circleStyle === 'bw' ? 2 : 8;
     const strokeW = getResponsiveStrokeWidth(baseStrokeWidth);
-    const padding = hideClockBackground ? 6 : 14;
+    const padding = 6;
     const innerDiameter = 2 * (radius - strokeW / 2 - padding);
     const heightMax = innerDiameter * 0.9;
 
@@ -1220,7 +1213,7 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={canEditDigits ? () => adjustDigit('seconds', 1, true) : undefined}
+                  onClick={canEditDigits ? () => adjustDigit('seconds', 0, true) : undefined}
                   pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 {/* Bottom half click area - decrement seconds */}
@@ -1231,7 +1224,7 @@ const MqtDisplay = () => {
                   height={fontSize / 2}
                   fill="transparent"
                   className="timer-digit-clickable"
-                  onClick={canEditDigits ? () => adjustDigit('seconds', 1, false) : undefined}
+                  onClick={canEditDigits ? () => adjustDigit('seconds', 0, false) : undefined}
                   pointerEvents={canEditDigits ? 'auto' : 'none'}
                 />
                 {/* Seconds text display */}
@@ -1810,75 +1803,6 @@ const MqtDisplay = () => {
   }, [disableKeyboard, currentDuration, countUp, plusMinusStep, navigate, effectiveMaxSeconds]);
 
 
-  // Generate clock markings
-  const generateClockMarkings = () => {
-    const markings = [];
-
-    // Add hour markings (12 markings)
-    for (let i = 0; i < 12; i++) {
-      const angle = (i * 30) - 90; // 30 degrees per hour, start from top
-      const radian = (angle * Math.PI) / 180;
-
-      // Major hour marks - responsive positioning
-      const minViewport = Math.min(window.innerWidth, window.innerHeight);
-      const markOffset = minViewport >= 2560 ? 15 : 10;
-      const markLength = minViewport >= 2560 ? 15 : 10;
-
-      const outerRadius = radius - markOffset;
-      const innerRadius = radius - (markOffset + markLength);
-      const x1 = 120 + outerRadius * Math.cos(radian);
-      const y1 = 120 + outerRadius * Math.sin(radian);
-      const x2 = 120 + innerRadius * Math.cos(radian);
-      const y2 = 120 + innerRadius * Math.sin(radian);
-
-      markings.push(
-        <line
-          key={`hour-${i}`}
-          x1={x1}
-          y1={y1}
-          x2={x2}
-          y2={y2}
-          stroke={textColor}
-          strokeWidth={getResponsiveStrokeWidth(2)}
-        />
-      );
-    }
-
-    // Add minute markings (60 markings, but lighter)
-    for (let i = 0; i < 60; i++) {
-      if (i % 5 !== 0) { // Skip positions where hour markings are
-        const angle = (i * 6) - 90; // 6 degrees per minute, start from top
-        const radian = (angle * Math.PI) / 180;
-
-        const minViewport = Math.min(window.innerWidth, window.innerHeight);
-        const minuteMarkOffset = minViewport >= 2560 ? 15 : 10;
-        const minuteMarkLength = minViewport >= 2560 ? 8 : 5;
-
-        const outerRadius = radius - minuteMarkOffset;
-        const innerRadius = radius - (minuteMarkOffset + minuteMarkLength);
-        const x1 = 120 + outerRadius * Math.cos(radian);
-        const y1 = 120 + outerRadius * Math.sin(radian);
-        const x2 = 120 + innerRadius * Math.cos(radian);
-        const y2 = 120 + innerRadius * Math.sin(radian);
-
-        markings.push(
-          <line
-            key={`minute-${i}`}
-            x1={x1}
-            y1={y1}
-            x2={x2}
-            y2={y2}
-            stroke={textColor}
-            strokeWidth={getResponsiveStrokeWidth(1)}
-            opacity="0.5"
-          />
-        );
-      }
-    }
-
-    return markings;
-  };
-
   const handleDisplayClick = (e) => {
     const svgElement = e.currentTarget.querySelector('.circle-svg');
     if (!svgElement) { setIsRunning(prev => !prev); return; }
@@ -1896,22 +1820,8 @@ const MqtDisplay = () => {
   };
 
   return (
-    <div className={`mqt-display fullscreen theme-${theme}`} style={{ cursor: 'none', backgroundColor: hasEnded ? '#8B0000' : undefined }} onClick={handleDisplayClick}>
+    <div className="mqt-display fullscreen theme-black" style={{ cursor: 'none', backgroundColor: hasEnded ? '#8B0000' : undefined }} onClick={handleDisplayClick}>
       <svg className="circle-svg" viewBox="0 0 240 240" fontWeight={effectiveFontWeight}>
-        {/* Clock face background circle - conditionally rendered */}
-        {!hideClockBackground && (
-          <circle
-            r={radius}
-            cx="120"
-            cy="120"
-            fill={textColor}
-            fillOpacity="0.05"
-          />
-        )}
-
-        {/* Clock markings - conditionally rendered */}
-        {!hideClockBackground && generateClockMarkings()}
-
         {/* Base circle stroke - always visible for progress bar */}
         <circle
           r={radius}
