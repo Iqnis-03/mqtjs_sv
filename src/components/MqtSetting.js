@@ -77,7 +77,7 @@ const MqtSetting = () => {
   const [startSoundEnabled, setStartSoundEnabled] = useState(
     typeof savedSettings.startSoundEnabled === 'boolean' ? savedSettings.startSoundEnabled : true
   );
-  const [circleProgress, setCircleProgress] = useState(savedSettings.circleProgress || 'full');
+  const [circleProgress, setCircleProgress] = useState(savedSettings.circleProgress || 'minute');
   const [allowClickableTimer, setAllowClickableTimer] = useState(savedSettings.allowClickableTimer || false);
 
   // Save settings to localStorage whenever they change
@@ -161,10 +161,7 @@ const MqtSetting = () => {
   const FunctionSettings = (
     <Stack spacing={2}>
       <Typography variant="body2">Circle Bar Progress</Typography>
-      <Stack direction="row" spacing={2}>
-        <FormControlLabel control={<Checkbox size="small" checked={circleProgress === 'full'} onChange={() => setCircleProgress('full')} />} label="Full Time" />
-        <FormControlLabel control={<Checkbox size="small" checked={circleProgress === 'minute'} onChange={() => setCircleProgress('minute')} />} label="By Minute" />
-      </Stack>
+      <FormControlLabel control={<Checkbox size="small" checked={circleProgress === 'full'} onChange={(e) => setCircleProgress(e.target.checked ? 'full' : 'minute')} />} label="Circle Bar Full Time Progression" />
 
       <div className="inline-fields">
         {/* <TextField
@@ -250,7 +247,7 @@ const MqtSetting = () => {
     setSoundSet(1);
     setWarnMode('10s');
     setStartSoundEnabled(true);
-    setCircleProgress('full');
+    setCircleProgress('minute');
     setAllowClickableTimer(false);
   };
 
