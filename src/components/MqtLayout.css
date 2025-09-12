@@ -60,12 +60,18 @@ body {
 /* Large screens (desktop monitors) */
 @media (min-width: 1440px) and (max-width: 2559px) {
   .mqt-display svg {
-    max-width: min(75vmin, 1400px);
-    max-height: min(75vmin, 1400px);
+    max-width: min(70vmin, 1200px);
+    max-height: min(70vmin, 1200px);
   }
 
   .mqt-display {
-    padding: 4rem;
+    padding: 3rem;
+  }
+
+  /* Adjust text positioning for better visibility */
+  .mqt-display text {
+    font-size: 95%;  /* Slightly reduce font size relative to container */
+    transform: translateY(2%);  /* Move text slightly down */
   }
 }
 
