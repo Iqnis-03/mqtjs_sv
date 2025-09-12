@@ -2,16 +2,14 @@ import React, { useEffect, useState, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './MqtLayout.css';
 
-const FONT_FAMILY = 'Roboto';
-const FONT_WEIGHT = 100; // Thin weight
-
 const MqtDisplay = () => {
   const navigate = useNavigate();
   const params = new URLSearchParams(window.location.search);
 
-  // Set constant font family and weight
-  const effectiveFontFamily = FONT_FAMILY;
-  const effectiveFontWeight = FONT_WEIGHT;
+  // Timer font styles based on selected style
+  const timerStyle = params.get('timerStyle') || params.get('circleStyle') || 'thin';
+  const effectiveFontFamily = timerStyle === 'fat' ? 'Arial Black' : timerStyle === 'bw' ? 'Verdana' : 'Roboto';
+  const effectiveFontWeight = timerStyle === 'fat' ? 900 : timerStyle === 'bw' ? 400 : 100;
 
   const limitBreak = params.get('limitBreak') === 'true';
   const rawDuration = Math.max(1, parseInt(params.get('duration') || '600', 10) || 600);
@@ -27,12 +25,12 @@ const MqtDisplay = () => {
   const yellowTrigger = Math.max(1, Math.min(3600, parseInt(yellowTriggerParam, 10) || 300));
   const timeFormat = params.get('timeFormat') || 'mm';
   const plusMinusStep = Math.max(1, parseInt(params.get('plusMinusStep') || '5', 10) || 5);
-  const circleStyle = params.get('circleStyle') || 'thin';
   const soundSet = params.get('soundSet') || '1';
   const startSoundEnabled = params.get('startSoundEnabled') !== 'false';
   const warnMode = params.get('warnMode') || '10s';
   const endSoundEnabled = soundSet !== '0';
   const circleProgress = params.get('circleProgress') || 'minute';
+  const strokeStyle = timerStyle; // Use timer style for stroke appearance
   const allowClickableTimer = params.get('allowClickableTimer') === 'true';
 
   // Using white text for dark theme
@@ -446,7 +444,7 @@ const MqtDisplay = () => {
     ? circumference // show no progress (empty) so only grey base circle remains
     : (countUp ? circumference * (1 - safePercent) : -circumference * safePercent);
 
-  const baseStrokeWidth = circleStyle === 'fat' ? 16 : circleStyle === 'bw' ? 2 : 8;
+  const baseStrokeWidth = strokeStyle === 'fat' ? 16 : strokeStyle === 'bw' ? 2 : 8;
   const computedStrokeWidth = getResponsiveStrokeWidth(baseStrokeWidth);
 
   // Time format
@@ -590,7 +588,7 @@ const MqtDisplay = () => {
     const baseComputed = Math.round(baseSize * scaleFactor * scaleBoost);
 
     // Constrain font size to fit within the circle
-    const baseStrokeWidth = circleStyle === 'fat' ? 16 : circleStyle === 'bw' ? 2 : 8;
+    const baseStrokeWidth = strokeStyle === 'fat' ? 16 : strokeStyle === 'bw' ? 2 : 8;
     const strokeW = getResponsiveStrokeWidth(baseStrokeWidth);
     const padding = 6;
     const innerDiameter = 2 * (radius - strokeW / 2 - padding);
@@ -810,6 +808,9 @@ const MqtDisplay = () => {
         if (newTotalMinutes < 0) newTotalMinutes = 0;
         if (newTotalMinutes > MAX_MINUTES_EFFECTIVE) newTotalMinutes = MAX_MINUTES_EFFECTIVE;
         newDuration = newTotalMinutes * 60 + secondsWithinMinute;
+        if (forceShowHours) {
+          newDuration = Math.max(60, newDuration);
+        }
         break;
       }
 
@@ -839,6 +840,9 @@ const MqtDisplay = () => {
         if (newTotalMinutes < 0) newTotalMinutes = 0; // allow zero
         if (newTotalMinutes > MAX_MINUTES_EFFECTIVE) newTotalMinutes = MAX_MINUTES_EFFECTIVE;
         newDuration = newTotalMinutes * 60 + (totalSeconds % 60);
+        if (forceShowHours) {
+          newDuration = Math.max(60, newDuration);
+        }
         break;
       }
 
@@ -1095,9 +1099,11 @@ const MqtDisplay = () => {
         } else if (isLongDuration) {
           const totalForDisplay = displaySeconds;
           const hours = Math.floor(totalForDisplay / 3600);
-          const minutesInHour = Math.floor((totalForDisplay % 3600) / 60);
+          const secondsInHour = totalForDisplay % 3600;
+          const minutesInHour = Math.floor(secondsInHour / 60);
+          const displayMinutes = minutesInHour === 0 && (secondsInHour % 60) > 0 ? 1 : minutesInHour;
           const hourStr = String(hours);
-          const minuteStr = String(minutesInHour).padStart(2, '0');
+          const minuteStr = String(displayMinutes).padStart(2, '0');
 
           const totalWidth = (hourStr.length * charWidth) + unitWidth + (2 * charWidth); // H + 'h' + MM
           const startX = 120 - totalWidth / 2;
@@ -1483,9 +1489,11 @@ const MqtDisplay = () => {
           // Switch to HH:MM when total duration exceeds threshold
           const totalForDisplay = displaySeconds;
           const hours = Math.floor(totalForDisplay / 3600);
-          const minutesInHour = Math.floor((totalForDisplay % 3600) / 60);
+          const secondsInHour = totalForDisplay % 3600;
+          const minutesInHour = Math.floor(secondsInHour / 60);
+          const displayMinutes = minutesInHour === 0 && (secondsInHour % 60) > 0 ? 1 : minutesInHour;
           const hourStr = String(hours);
-          const minuteStr = String(minutesInHour).padStart(2, '0');
+          const minuteStr = String(displayMinutes).padStart(2, '0');
 
           // width: H + 'h' + ':' + MM
           const totalWidth = (hourStr.length * charWidth) + unitWidth + colonWidth + (2 * charWidth);
@@ -1810,7 +1818,32 @@ const MqtDisplay = () => {
   }, [disableKeyboard, currentDuration, countUp, plusMinusStep, navigate, effectiveMaxSeconds]);
 
 
+  // Track click timing for triple click detection
+  const [lastClickTime, setLastClickTime] = useState(0);
+  const [clickCount, setClickCount] = useState(0);
+  const TRIPLE_CLICK_TIMEOUT = 500; // 500ms window for triple click
+
   const handleDisplayClick = (e) => {
+    const currentTime = Date.now();
+    const timeSinceLastClick = currentTime - lastClickTime;
+
+    // Reset click count if too much time has passed
+    if (timeSinceLastClick > TRIPLE_CLICK_TIMEOUT) {
+      setClickCount(1);
+    } else {
+      setClickCount(prev => prev + 1);
+    }
+
+    // Update last click time
+    setLastClickTime(currentTime);
+
+    // Handle triple click when keyboard is disabled
+    if (clickCount === 2 && disableKeyboard) {
+      navigate('/');
+      return;
+    }
+
+    // Normal click handling for play/pause
     const svgElement = e.currentTarget.querySelector('.circle-svg');
     if (!svgElement) { setIsRunning(prev => !prev); return; }
     const svgRect = svgElement.getBoundingClientRect();
@@ -1837,7 +1870,7 @@ const MqtDisplay = () => {
           stroke="#666"
           strokeWidth={computedStrokeWidth}
           fill="none"
-          opacity={circleStyle === 'bw' ? 0.3 : 1}
+          opacity={strokeStyle === 'bw' ? 0.3 : 1}
         />
 
         {/* Progress circle */}
@@ -1846,7 +1879,7 @@ const MqtDisplay = () => {
           r={radius}
           cx="120"
           cy="120"
-          stroke={circleStyle === 'bw' ? dynamicTextColor : dynamicColor}
+          stroke={strokeStyle === 'bw' ? dynamicTextColor : dynamicColor}
           strokeWidth={computedStrokeWidth}
           fill="none"
           strokeDasharray={circumference}
